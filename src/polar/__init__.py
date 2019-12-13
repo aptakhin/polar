@@ -1,20 +1,26 @@
 import abc
-import asyncio
 import random
 import re
+from typing import List, Optional
 
 
 class Context(dict):
     async def commit(self):
         print("COMMITED")
 
+    # async def update
 
-class UserMessage:
+
+class Event:
+    pass
+
+
+class UserMessage(Event):
     def __init__(self, text):
         self.text = text
 
 
-class OutMessage:
+class OutMessageEvent(Event):
     def __init__(self, parts=None):
         if not isinstance(parts, list):
             parts = [parts]
@@ -25,117 +31,169 @@ class OutMessage:
         return str(self.parts)
 
     def __repr__(self):
-        return "OutMessage(%s)" % repr(self.parts)
+        return "OutMessageEvent(%s)" % repr(self.parts)
 
 
 class BaseIO:
     @abc.abstractmethod
-    async def read_message(self) -> UserMessage:
+    async def read_event(self) -> Event:
         pass
 
     @abc.abstractmethod
-    async def send_message(self, message: OutMessage):
+    async def send_event(self, event: Event):
         pass
 
 
-class Response:
-    def __init__(self):
-        pass
+class CommandResult:
+    OK = 0
+    EXIT = 1
+    ERROR = 2
+    BREAK = 3
 
-    @abc.abstractmethod
-    async def add_part(self, part: OutMessage, context: Context):
-        pass
-
-    @abc.abstractmethod
-    async def send(self):
-        pass
+    def __init__(self, state):
+        self.state = state
+        self.result = {}
 
 
-class CombinedResponse(Response):
-    def __init__(self, io: BaseIO):
-        self.parts = []
-        self.io = io
+class MatchRange:
+    start = None
+    end = None
+    weight = 1
 
-    async def add_part(self, out: OutMessage, context: Context):
-        for part in out.parts:
-            if isinstance(part, dict):
-                if part["type"] == "var":
-                    self.parts.append(context.get(part["name"], ""))
-                else:
-                    self.parts.append(part)
-            else:
-                self.parts.append(part)
+    def __init__(self, start, end):
+        self.start = start
+        self.end = end
 
-    async def send(self):
-        # parts = []
-        # for p in self.parts:
-        #     parts.extend(p.parts)
-
-        message = OutMessage(parts=self.parts)
-
-        await self.io.send_message(message)
+    def __repr__(self):
+        return "MatchRange(%s, %s)" % (repr(self.start), repr(self.end))
 
 
-class Command:
-    def __init__(self, is_condition=False):
+class MatchRanges:
+    ranges: List[MatchRange] = []
+
+
+class EvalResult:
+    def __init__(self, state=CommandResult.OK, value=None):
+        self.state: int = state
+        self.value = value
+
+    def merge_match_result(self, result: "EvalResult"):
+        if self.value is None:
+            self.value = ListC([])
+
+        if result and result.value is not None:
+            if isinstance(result.value, MatchResult):
+                self.value.value.append(result.value)
+
+            if isinstance(result.value, ListC) and all(isinstance(m, MatchResult) for m in result.value.value):
+                self.value.value.extend(result.value.value)
+
+            # ---
+            if isinstance(result.value, OutMessageEvent):
+                self.value.value.append(result.value)
+
+            if isinstance(result.value, ListC) and all(isinstance(m, OutMessageEvent) for m in result.value.value):
+                self.value.value.extend(result.value.value)
+
+
+class AstNode:
+    def __init__(self, is_condition=False, types=None, weight=1):
         self.is_condition = is_condition
+        self.types = types
 
     @abc.abstractmethod
-    async def eval(self, message: UserMessage, context: Context, resp: Response):
+    async def eval(self, event: Event, context: Context) -> Optional[EvalResult]:
+        pass
+
+    def __repr__(self):
+        return "ast:" + str(type(self)) + str(self.__dict__)
+
+
+class MatchResult(AstNode):
+    ranges: List[MatchRange] = []
+
+    async def eval(self, event: Event, context: Context) -> Optional[EvalResult]:
         pass
 
 
-class Condition(Command):
+#     self.parts = None
+#     self.match_ranges = None
+#
+# async def add_part(self, out: OutMessageEvent, context: Context):
+#     for part in out.parts:
+#         if isinstance(part, str):
+#             self.parts.append(part)
+#         elif isinstance(part, Command):
+#             self.parts.append(await part.eval(None, context))
+#         else:
+#             raise ValueError("Can't add part: %s" % part)
+
+
+class Condition(AstNode):
     def __init__(self, *condition):
         self.condition = condition
 
-    async def eval(self, message: UserMessage, context: Context, resp: Response):
+    async def eval(self, event: Event, context: Context) -> Optional[EvalResult]:
         pass
 
 
-class BreakCommand(Command):
+class BreakAstNode(AstNode):
     pass
 
 
-class ExitCommand(Command):
+class ExitAstNode(AstNode):
     pass
 
 
-class Regexp(Command):
+class Regexp(AstNode):
     def __init__(self, regexps):
         super().__init__(is_condition=True)
         self.regexps = regexps
 
-    async def eval(self, message: UserMessage, context: Context, resp: Response):
+    async def eval(self, event: Event, context: Context) -> Optional[EvalResult]:
+        if not isinstance(event, UserMessage):
+            return None
+
+        values: List[MatchResult] = []
+
         for regexp in self.regexps:
-            m = re.search(regexp, message.text)
+            m = re.search(regexp, event.text)
             if m:
-                return True
+                start, end = m.start(0), m.end(0)
 
-        return False
+                match_result = MatchResult()
+                if start != -1 and end != -1:
+                    match_result.ranges.append(MatchRange(start, end))
+                values.append(match_result)
+
+        return EvalResult(value=ListC(values)) if values else None
 
 
-class SimpleResponse(Command):
+class SimpleResponse(AstNode):
     def __init__(self, responses):
         super().__init__()
         self.responses = responses
 
-    async def eval(self, message: UserMessage, context: Context, resp: Response):
+    async def eval(self, event: Event, context: Context) -> Optional[EvalResult]:
+        random.seed(context["random_seed"])
         part = random.choice(self.responses)
-        await resp.add_part(part, context)
-        return True
+        if isinstance(part, str):
+            part = OutMessageEvent(part)
+
+        return EvalResult(value=part)
 
 
-class Set(Command):
+class Set(AstNode):
     def __init__(self, name, value):
         super().__init__()
         self.name = name
         self.value = value
 
-    async def eval(self, message: UserMessage, context: Context, resp: Response):
+    async def eval(self, event: Event, context: Context) -> Optional[EvalResult]:
         context[self.name] = self.value
         await context.commit()
-        return True
+
+        return None
 
 
 class Anchor:
@@ -144,13 +202,27 @@ class Anchor:
         self.offset = offset
 
 
-class AnchorFeature(Command):
+class ListC(AstNode):
+    def __init__(self, value):
+        if not isinstance(value, list):
+            raise RuntimeError("Must be list: %s" % value)
+        self.value = value
+
+    async def eval(self, event: Event, context: Context) -> Optional[EvalResult]:
+        return None
+
+
+class AnchorFeature(AstNode):
     def __init__(self, *, var, anchors):
+        super().__init__(types=UserMessage)
         self.var = var
         self.anchors = anchors
 
-    async def eval(self, message: UserMessage, context: Context, resp: Response):
-        words = message.text.split(" ")
+    async def eval(self, event: Event, context: Context) -> Optional[EvalResult]:
+        if not isinstance(event, UserMessage):
+            return None
+
+        words = event.text.split(" ")
 
         results = []
 
@@ -165,10 +237,11 @@ class AnchorFeature(Command):
                 else:
                     left = word_idx + 1
                     right = word_idx + 1 + anchor.offset
+
                 match = words[left : right]
-                if self.var is not None:
-                    context[self.var] = match
-                    await context.commit()
+                # if self.var is not None:
+                #     context[self.var] = match
+                #     await context.commit()
 
                 if not match:
                     continue
@@ -179,223 +252,188 @@ class AnchorFeature(Command):
                     "match": match,
                 })
 
-        return results
+        return EvalResult(value=ListC(results))
 
 
-class NameFeature(Command):
+class NameFeature(AstNode):
+    weight = 2
+
     def __init__(self, vocab, var):
         super().__init__()
         self.vocab = vocab
         self.var = var
         anchors = [
+            Anchor("я", 1),
+            Anchor("я", -1),
             Anchor("меня", 1),
             Anchor("меня", -1),
             Anchor("зовут", -1),
             Anchor("зовут", +1),
+            Anchor("имя", -1),
+            Anchor("имя", +1),
         ]
         self.anchor = AnchorFeature(anchors=anchors, var=None)
 
-    async def eval(self, message: UserMessage, context: Context, resp: Response):
-        results = await self.anchor.eval(message, None, None)
-        for res in results:
+    async def eval(self, event: Event, context: Context) -> Optional[EvalResult]:
+        results = await self.anchor.eval(event, None)
+        if results is None:
+            return None
+
+        if not isinstance(results.value, ListC):
+            raise RuntimeError("Anchor object returned not list or none")
+
+        anchor_results = results.value.value
+
+        values: List[MatchResult] = []
+
+        for res in anchor_results:
             vocab_entry = self.vocab.get(res["match"][0].lower())
-            if vocab_entry:
-                context[self.var] = vocab_entry["norm"]
-                return True
+            if not vocab_entry:
+                continue
+            # context[self.var] = vocab_entry["norm"]
+            # Context
+            values.append(MatchResult())
 
-        return False
-
-class CommandResult:
-    OK = 0
-    ERROR = 2
-    BREAK = 3
-    EXIT = 4
-
-    def __init__(self, state):
-        self.state = state
-        self.result = {}
+        return EvalResult(value=ListC(values)) if values else None
 
 
-class If(Command):
+class If(AstNode):
     def __init__(self, if_, then_, else_=None):
         super().__init__()
         self.if_ = if_
         self.then_ = then_
         self.else_ = else_
 
-    async def eval(self, message: UserMessage, context: Context, resp: Response):
-        if await self.if_.eval(message, context, resp):
-            res = await self.then_.eval(message, context, resp)
+    async def eval(self, event: Event, context: Context) -> Optional[EvalResult]:
+        resp = CommandResult(state=CommandResult.OK)
+
+        if await self.if_.eval(event, context):
+            resp = await self.then_.eval(event, context)
         elif self.else_ is not None:
-            res = await self.else_.eval(message, context, resp)
+            resp = await self.else_.eval(event, context)
 
-        return res
+        return resp
 
 
-class NotEmpty(Command):
+class Print(AstNode):
+    def __init__(self, name):
+        super().__init__()
+        self.name = name
+
+    async def eval(self, message: Event, context: Context) -> Optional[EvalResult]:
+        return context.get(self.name, "")
+
+
+class Empty(AstNode):
     def __init__(self, var):
         self.var = var
 
-    async def eval(self, message: UserMessage, context: Context, resp: Response):
-        return bool(context.get(self.var))
+    async def eval(self, event: Event, context: Context) -> Optional[EvalResult]:
+        return EvalResult(state=CommandResult.OK,
+                          value=not bool(context.get(self.var)))
 
 
-class Flow(Command):
+class NotEmpty(AstNode):
+    def __init__(self, var):
+        self.var = var
+
+    async def eval(self, event: Event, context: Context) -> Optional[EvalResult]:
+        return EvalResult(state=CommandResult.OK,
+                          value=bool(context.get(self.var)))
+
+
+class Flow(AstNode):
     def __init__(self, commands):
         self.commands = commands
 
-    async def eval(self, message: UserMessage, context: Context, resp: Response):
+    async def eval(self, event: Event, context: Context) -> Optional[EvalResult]:
+        result = EvalResult()
+
         for command in self.commands:
-            res = await self._eval_command(command, message, context, resp)
+            res = await self._eval_command(command, event, context)
 
-            if res.state in (CommandResult.EXIT, CommandResult.BREAK):
-                return res
+            result.merge_match_result(res)
 
-        return CommandResult(state=CommandResult.OK)
+            if res and res.state in (CommandResult.EXIT, CommandResult.BREAK):
+                return result
 
-    async def _eval_command(self, command: Command, message: UserMessage, context: Context, resp: Response):
-        if isinstance(command, BreakCommand):
-            return CommandResult(state=CommandResult.BREAK)
+        return result
 
-        if isinstance(command, ExitCommand):
-            return CommandResult(state=CommandResult.EXIT)
+    async def _eval_command(self, command: AstNode, event: Event, context: Context) -> Optional[EvalResult]:
+        if isinstance(command, BreakAstNode):
+            return EvalResult(state=CommandResult.BREAK)
 
-        res = await command.eval(message, context, resp)
+        if isinstance(command, ExitAstNode):
+            return EvalResult(state=CommandResult.EXIT)
+
+        resp = await command.eval(event, context)
 
         if command.is_condition:
-            if not res:
-                return CommandResult(state=CommandResult.BREAK)
+            if not resp:
+                return EvalResult(state=CommandResult.BREAK)
 
-        return CommandResult(state=CommandResult.OK)
+        return resp
 
 
 class Rule:
-    def __init__(self, *, name, order):
+    def __init__(self, *, name, weight=1):
         self.name = name
-        self.order = order
+        self.weight = weight
+        self.condition = Flow([])
         self.flow = Flow([])
 
 
 class Bot:
     def __init__(self):
-        self.rules = []
+        self.rules: List[Rule] = []
 
     def add_rules(self, rules):
         self.rules.extend(rules)
-        self.rules.sort(key=lambda rule: rule.order)
+        # self.rules.sort(key=lambda rule: rule.order)
 
 
 class ConsoleIO(BaseIO):
-    async def read_message(self) -> UserMessage:
+    async def read_event(self) -> Event:
         text = input("<--")
         msg = UserMessage(text)
         return msg
 
-    async def send_message(self, message: OutMessage):
-        print("-->", message.parts)
-
-
-class _ExecutorResult:
-    OK = 0
-    ERROR = 2
-    BREAK = 3
-    EXIT = 4
-
-    def __init__(self, state):
-        self.state = state
-        self.result = {}
+    async def send_event(self, event: Event):
+        if not isinstance(event, OutMessageEvent):
+            raise RuntimeError("Event %s is not OutMessageEvent" % event)
+        print("-->", event.parts)
 
 
 class Executor:
     async def loop(self, *, bot: Bot, context: Context, io: BaseIO):
         while True:
-            message = await io.read_message()
+            event = await io.read_event()
 
-            resp = CombinedResponse(io=io)
+            matched_results = []
 
-            for rule in bot.rules:
-                res = await rule.flow.eval(message, context, resp)
+            for rule_idx, rule in enumerate(bot.rules):
+                resp = await rule.condition.eval(event, context)
+                if resp is None or resp.value is None:
+                    continue
 
-                if res.state == CommandResult.EXIT:
-                    break
+                if isinstance(resp.value, ListC) and not resp.value.value:
+                    continue
 
-            await resp.send()
+                if isinstance(resp.value, MatchResult):
+                    matched_results.append((rule_idx, resp))
+                elif isinstance(resp.value, ListC) and all(isinstance(m, MatchResult) for m in resp.value.value):
+                    matched_results.extend([(rule_idx, r) for r in resp.value.value])
+                else:
+                    raise RuntimeError("Response %s is not MatchResult or List[MatchResult]" % resp.value)
 
+            if not matched_results:
+                continue
 
+            best_response = matched_results[0]
+            rule_idx, match = best_response
+            rule = bot.rules[rule_idx]
 
-async def test_anchor():
-    anchors = [
-        Anchor("в", +1),
-        Anchor("во", +1),
-    ]
-    feat = AnchorFeature(anchors=anchors, var=None)
-    context = Context()
-    res = await feat.eval(UserMessage("во Владивосток"), context=context, resp=Response())
-    assert len(res) == 1
-    assert res[0]["idx"] == 0
-    assert res[0]["match"] == ["Владивосток"]
+            response = await rule.flow.eval(event, context)
 
-    anchors = [
-        Anchor("меня", 1),
-        Anchor("меня", -1),
-        Anchor("зовут", -1),
-        Anchor("зовут", +1),
-    ]
-    feat = AnchorFeature(anchors=anchors, var=None)
-    context = Context()
-    res = await feat.eval(UserMessage("Сашей меня зовут все"), context=context, resp=Response())
-    # assert context[var] == ["Сашей"]
-    p = 0
-
-
-def test():
-    asyncio.get_event_loop().run_until_complete(test_anchor())
-
-    bot = Bot()
-
-    rule_hi_stop = Rule(name="name", order=0)
-    rule_hi_stop.flow = Flow([
-        Regexp(["привет_как_дела"]),
-        SimpleResponse([OutMessage("И_тебе_привет")]),
-        Set("secret", "1"),
-        ExitCommand(),
-    ])
-
-    rule_hi = Rule(name="name", order=1)
-    rule_hi.flow = Flow([
-        Regexp(["привет", "прив"]),
-        If(NotEmpty("name"), then_=Flow([
-            SimpleResponse([OutMessage(["Привет, ", {"type": "var", "name": "name"}, "!"])]),
-        ]), else_=Flow([
-            SimpleResponse([OutMessage("И тебе привет"), OutMessage("Приветище!")]),
-        ]),
-       )
-    ])
-
-    rule_mind = Rule(name="name", order=2)
-    rule_mind.flow = Flow([
-        Regexp(["как дела", "дела"]),
-        SimpleResponse([OutMessage("Дела супер!"), OutMessage("Дела отлично!")]),
-    ])
-
-    vocab = {
-        "сашей": {"norm": "Саша"},
-        "машей": {"norm": "Маша"},
-    }
-
-    rule_name = Rule(name="name", order=-1)
-    rule_name.flow = Flow([
-        NameFeature(vocab=vocab, var="name"),
-    ])
-
-    bot.add_rules([rule_name, rule_hi_stop, rule_hi, rule_mind])
-
-    console_io = ConsoleIO()
-    context = Context()
-    executor = Executor()
-
-    asyncio.get_event_loop().run_until_complete(executor.loop(bot=bot, context=context, io=console_io))
-
-
-if __name__ == "__main__":
-    test()
+            event = OutMessageEvent(parts=response.value.value)
+            await io.send_event(event)
