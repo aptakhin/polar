@@ -60,16 +60,21 @@ class MatchRange:
     end = None
     weight = 1
 
-    def __init__(self, start, end):
+    def __init__(self, start, end, weight=1):
         self.start = start
         self.end = end
+        self.weight = weight
 
     def __repr__(self):
-        return "MatchRange(%s, %s)" % (repr(self.start), repr(self.end))
+        return "MatchRange(%s, %s, %s)" % (repr(self.start), repr(self.end), repr(self.weight))
+
+    def __eq__(self, other):
+        return self.start == other.start and self.end == other.end and self.weight == other.weight
 
 
-class MatchRanges:
-    ranges: List[MatchRange] = []
+# class MatchRanges:
+#     def __init__(self):
+#         self.ranges: List[MatchRange] = []
 
 
 class EvalResult:
@@ -97,7 +102,7 @@ class EvalResult:
 
 
 class AstNode:
-    def __init__(self, is_condition=False, types=None, weight=1):
+    def __init__(self, is_condition=False, types=None):
         self.is_condition = is_condition
         self.types = types
 
@@ -110,7 +115,8 @@ class AstNode:
 
 
 class MatchResult(AstNode):
-    ranges: List[MatchRange] = []
+    def __init__(self):
+        self.ranges: List[MatchRange] = []
 
     async def eval(self, event: Event, context: Context) -> Optional[EvalResult]:
         pass
@@ -307,7 +313,8 @@ class If(AstNode):
     async def eval(self, event: Event, context: Context) -> Optional[EvalResult]:
         resp = CommandResult(state=CommandResult.OK)
 
-        if await self.if_.eval(event, context):
+        resp = await self.if_.eval(event, context)
+        if resp.value:
             resp = await self.then_.eval(event, context)
         elif self.else_ is not None:
             resp = await self.else_.eval(event, context)
@@ -340,6 +347,51 @@ class NotEmpty(AstNode):
     async def eval(self, event: Event, context: Context) -> Optional[EvalResult]:
         return EvalResult(state=CommandResult.OK,
                           value=bool(context.get(self.var)))
+
+
+class RegexVariative(AstNode):
+
+    class Any:
+        pass
+
+    def __init__(self, args):
+        self.args = args
+        self._re = self._compile_re(self._build_re(self.args))
+
+    @staticmethod
+    def _format_word(word):
+        if word.endswith("~"):
+            word = word[:-1] + "\w."
+        return word
+
+    @classmethod
+    def _build_re(cls, args):
+        r = ""
+        for arg in args:
+            if isinstance(arg, list):
+                vars = "|".join(cls._format_word(w) for w in arg)
+                r += f"({vars})"
+            elif arg == RegexVariative.Any or isinstance(arg, RegexVariative.Any):
+                r += ".*"
+            elif isinstance(arg, str):
+                r += cls._format_word(arg)
+
+            r += " "
+
+        return r.strip()
+
+    @staticmethod
+    def _compile_re(r):
+        return re.compile(r, flags=re.MULTILINE | re.IGNORECASE)
+
+    async def eval(self, event: Event, context: Context) -> Optional[EvalResult]:
+        m = re.search(self._re, event.text)
+        value = None
+        if m:
+            match_result = MatchResult()
+            match_result.ranges.append(MatchRange(m.start(0), m.end(0)))
+            value = ListC([match_result])
+        return EvalResult(state=CommandResult.OK, value=value)
 
 
 class Flow(AstNode):
@@ -435,5 +487,9 @@ class Executor:
 
             response = await rule.flow.eval(event, context)
 
-            event = OutMessageEvent(parts=response.value.value)
-            await io.send_event(event)
+
+            if response.value:
+                event = OutMessageEvent(parts=response.value.value)
+                await io.send_event(event)
+            else:
+                pass  # Log it too
