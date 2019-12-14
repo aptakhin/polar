@@ -20,6 +20,8 @@ async def main():
                 try:
                     while True:
                         msg = await ws.receive(timeout=5)
+                        if msg.data is None:
+                            break
                         print("-->", msg.data)
                 except concurrent.futures._base.TimeoutError:
                     pass

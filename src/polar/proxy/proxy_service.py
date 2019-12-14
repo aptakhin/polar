@@ -4,8 +4,8 @@ import asyncpg
 from aiohttp import web
 
 from polar import UserMessage
-from polar.meta.meta_service import MetaService, MetaContext
-from polar.proxy import proxy_conf
+from polar.meta.meta_service import MetaService, MetaSession
+from polar.proxy import proxy_conf, legacy
 
 
 async def websocket_handler(request):
@@ -14,7 +14,7 @@ async def websocket_handler(request):
 
     meta: MetaService = request.app["meta"]
 
-    context: MetaContext = None
+    session_id: str = None
 
     while not ws.closed:
         msg = await ws.receive()
@@ -24,14 +24,16 @@ async def websocket_handler(request):
             js = msg.json()
 
             if js["type"] == "hello":
-                context = await meta.init_session(js["bot_id"])
+                session_id = await meta.init_session(js["bot_id"])
             elif js["type"] == "text":
                 event = UserMessage(js["text"])
-                resp_events = await meta.push_request(event, context)
+                resp_events = await meta.push_request(event, session_id)
                 if resp_events:
                     for resp_event in resp_events:
                         resp_text = "".join(resp_event.parts)
-                        await ws.send_json({"type": "text", "text": resp_text})
+                        send = {"type": "text", "text": resp_text}
+                        print("-->", send)
+                        await ws.send_json(send)
 
         elif msg.type == aiohttp.WSMsgType.CLOSE:
             print("websocket connection closed")
@@ -49,6 +51,8 @@ def main():
     app["meta"] = MetaService(db_pool)
     app.add_routes([
         web.get('/ws', websocket_handler),
+        web.post('/Chat.init', legacy.chat_init),
+        web.post('/Chat.request', legacy.chat_request),
     ])
     web.run_app(app, port=8090)
 

@@ -476,7 +476,7 @@ class ConsoleIO(BaseIO):
 
 class Executor:
 
-    async def _execute_event(self, event: Event, bot: Bot, context: Context):
+    async def execute_event(self, event: Event, bot: Bot, context: Context):
         matched_results = []
 
         for rule_idx, rule in enumerate(bot.rules):
@@ -515,7 +515,7 @@ class Executor:
         while True:
             event = await io.read_event()
 
-            response_events = await self._execute_event(event, bot, context)
+            response_events = await self.execute_event(event, bot, context)
 
             if response_events:
                 for response_event in response_events:

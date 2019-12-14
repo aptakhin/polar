@@ -36,14 +36,14 @@ def test_logic():
     executor = Executor()
 
     event = UserMessage("2 вышел зайчик")
-    resp_event = asyncio.get_event_loop().run_until_complete(executor._execute_event(event=event, bot=bot, context=context))
+    resp_event = asyncio.get_event_loop().run_until_complete(executor.execute_event(event=event, bot=bot, context=context))
     assert len(resp_event) == 1
     assert len(resp_event[0].parts) == 1
     assert resp_event[0].parts[0] == "И, правда, вышел"
 
     event = UserMessage("крокодил")
     resp_event = asyncio.get_event_loop().run_until_complete(
-        executor._execute_event(event=event, bot=bot, context=context))
+        executor.execute_event(event=event, bot=bot, context=context))
     assert len(resp_event) == 1
     assert len(resp_event[0].parts) == 1
     assert resp_event[0].parts[0] == "слон"
