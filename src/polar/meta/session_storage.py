@@ -24,11 +24,11 @@ class MetaMemorySessionStorageBackend(MetaSessionStorageBaseBackend):
 
     async def init(self, session: MetaSession):
         session_id = uuid.uuid4()
-        self.sessions[session_id] = session
+        self.sessions[str(session_id)] = session
         return session_id
 
     async def get(self, meta_session_id):
-        return self.sessions.get(meta_session_id)
+        return self.sessions.get(str(meta_session_id))
 
 
 class MetaSessionStorage:

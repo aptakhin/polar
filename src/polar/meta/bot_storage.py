@@ -20,11 +20,11 @@ class MetaMemoryBotStorageBackend(MetaBotStorageBaseBackend):
 
     async def init(self, bot: Bot):
         meta_bot_id = uuid.uuid4()
-        self.bots[meta_bot_id] = bot
+        self.bots[str(meta_bot_id)] = bot
         return meta_bot_id
 
     async def get(self, meta_bot_id):
-        return self.bots.get(meta_bot_id)
+        return self.bots.get(str(meta_bot_id))
 
 
 class MetaBotStorage:

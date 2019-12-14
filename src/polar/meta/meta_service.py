@@ -38,6 +38,7 @@ class MetaService:
 
         if not session:
             # pity
+            print("Can't find session", session_id)
             return None
 
         if session.context.get("update_every_request"):
