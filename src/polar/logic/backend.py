@@ -1,11 +1,11 @@
-import abc
+from abc import abstractmethod
 
 import asyncpg
 
 
 class LogicBaseBackend:
 
-    @abc.abstractmethod
+    @abstractmethod
     async def get_templates(self, bot_id):
         pass
 

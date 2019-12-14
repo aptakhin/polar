@@ -31,8 +31,9 @@ def test_logic():
 
     bot.add_rules([rule_mind, rule_mind2])
 
-    context = Context()
-    context["random_seed"] = 123
+    context = Context({
+        "random_seed": 123,
+    })
     executor = Executor()
 
     event = UserMessage("2 вышел зайчик")

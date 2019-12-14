@@ -3,8 +3,10 @@ import random
 import re
 from typing import List, Optional
 
+from frozendict import frozendict
 
-class Context(dict):
+
+class Context(frozendict):
     async def commit(self):
         print("COMMITED")
 
@@ -72,11 +74,6 @@ class MatchRange:
         return self.start == other.start and self.end == other.end and self.weight == other.weight
 
 
-# class MatchRanges:
-#     def __init__(self):
-#         self.ranges: List[MatchRange] = []
-
-
 class EvalResult:
     def __init__(self, state=CommandResult.OK, value=None):
         self.state: int = state
@@ -129,19 +126,6 @@ class MatchResult(AstNode):
 
     async def eval(self, event: Event, context: Context) -> Optional[EvalResult]:
         pass
-
-
-#     self.parts = None
-#     self.match_ranges = None
-#
-# async def add_part(self, out: OutMessageEvent, context: Context):
-#     for part in out.parts:
-#         if isinstance(part, str):
-#             self.parts.append(part)
-#         elif isinstance(part, Command):
-#             self.parts.append(await part.eval(None, context))
-#         else:
-#             raise ValueError("Can't add part: %s" % part)
 
 
 class Condition(AstNode):

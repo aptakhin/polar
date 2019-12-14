@@ -1,5 +1,5 @@
-import abc
 import uuid
+from abc import abstractmethod
 
 
 class MetaSession:
@@ -9,11 +9,11 @@ class MetaSession:
 
 
 class MetaSessionStorageBaseBackend:
-    @abc.abstractmethod
+    @abstractmethod
     async def init(self, session: MetaSession):
         pass
 
-    @abc.abstractmethod
+    @abstractmethod
     async def get(self, meta_session_id):
         pass
 

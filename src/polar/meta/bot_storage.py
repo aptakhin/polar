@@ -1,15 +1,15 @@
-import abc
 import uuid
+from abc import abstractmethod
 
 from polar import Bot
 
 
 class MetaBotStorageBaseBackend:
-    @abc.abstractmethod
+    @abstractmethod
     async def init(self, bot: Bot):
         pass
 
-    @abc.abstractmethod
+    @abstractmethod
     async def get(self, meta_bot_id):
         pass
 

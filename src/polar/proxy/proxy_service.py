@@ -4,7 +4,7 @@ import asyncpg
 from aiohttp import web
 
 from polar import UserMessage
-from polar.meta.meta_service import MetaService, MetaSession
+from polar.meta.meta_service import MetaService
 from polar.proxy import proxy_conf, legacy
 
 

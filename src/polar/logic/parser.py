@@ -41,7 +41,6 @@ class ArmBotParser:
             rules.append(rule)
         return rules
 
-
     @classmethod
     def parse_rule(cls, template):
         content = _transform_template_text(template["content"])
@@ -51,7 +50,6 @@ class ArmBotParser:
         state = ST_RULE
 
         conditions = []
-        flow = []
         simple_responses = []
 
         for line in content.split("\n"):
@@ -85,6 +83,7 @@ class ArmBotParser:
             if state == ST_OUT:
                 if sline.startswith("#"):
                     cmd = sline[1:].lstrip()
+                    simple_responses.append(OutMessageEvent(cmd))
 
 
         rule = Rule(name=template["id"])
