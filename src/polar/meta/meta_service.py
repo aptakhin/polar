@@ -4,15 +4,16 @@ from polar import Executor, Event
 from polar.logic.backend import LogicPostgresBackend
 from polar.logic.logic_service import LogicService
 from polar.meta.bot_storage import MetaBotStorage, MetaMemoryBotStorageBackend
-from polar.meta.session_storage import MetaSessionStorage, MetaMemorySessionStorageBackend, MetaSession
+from polar.meta.session_storage import MetaSessionStorage, MetaSession, \
+    MetaRedisSessionStorageBackend
 
 
 class MetaService:
-    def __init__(self, db):
+    def __init__(self, *, db, redis):
         self.db = db
 
         self._bots = MetaBotStorage(MetaMemoryBotStorageBackend())
-        self._sessions = MetaSessionStorage(MetaMemorySessionStorageBackend())
+        self._sessions = MetaSessionStorage(MetaRedisSessionStorageBackend(redis))
 
         self._logic_service = LogicService(LogicPostgresBackend(db))
 

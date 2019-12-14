@@ -1,11 +1,29 @@
+import json
 import uuid
 from abc import abstractmethod
+
+from polar import util
 
 
 class MetaSession:
     def __init__(self):
         self.meta_bot_id = None
         self.context = {}
+
+    @classmethod
+    def from_json(cls, jstr):
+        session = MetaSession()
+        js = json.loads(jstr)
+        session.meta_bot_id = str(js["meta_bot_id"])
+        session.context = js["context"]
+        return session
+
+    def to_json(self):
+        obj = {
+            "meta_bot_id": self.meta_bot_id,
+            "context": self.context,
+        }
+        return json.dumps(obj, default=util.json_serial)
 
 
 class MetaSessionStorageBaseBackend:
@@ -29,6 +47,20 @@ class MetaMemorySessionStorageBackend(MetaSessionStorageBaseBackend):
 
     async def get(self, meta_session_id):
         return self.sessions.get(str(meta_session_id))
+
+
+class MetaRedisSessionStorageBackend(MetaSessionStorageBaseBackend):
+    def __init__(self, redis):
+        self._redis = redis
+
+    async def init(self, session: MetaSession):
+        session_id = uuid.uuid4()
+        await self._redis.set(str(session_id), session.to_json())
+        return session_id
+
+    async def get(self, meta_session_id):
+        result = await self._redis.get(str(meta_session_id), encoding="utf-8")
+        return MetaSession.from_json(result) if result else None
 
 
 class MetaSessionStorage:

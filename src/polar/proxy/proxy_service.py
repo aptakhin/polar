@@ -1,5 +1,6 @@
 import asyncio
 import aiohttp
+import aioredis
 import asyncpg
 from aiohttp import web
 
@@ -46,9 +47,11 @@ async def websocket_handler(request):
 def main():
     app = web.Application()
 
-    db_pool = asyncio.get_event_loop().run_until_complete(asyncpg.create_pool(dsn=proxy_conf.LOGIC_POSTGRES_DSN))
 
-    app["meta"] = MetaService(db_pool)
+    db = asyncio.get_event_loop().run_until_complete(asyncpg.create_pool(dsn=proxy_conf.LOGIC_POSTGRES_DSN))
+    redis = asyncio.get_event_loop().run_until_complete(aioredis.create_redis_pool(proxy_conf.LOGIC_REDIS_DSN))
+
+    app["meta"] = MetaService(db=db, redis=redis)
     app.add_routes([
         web.get('/ws', websocket_handler),
         web.post('/Chat.init', legacy.chat_init),
