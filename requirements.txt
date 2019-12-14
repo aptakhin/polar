@@ -1,0 +1,4 @@
+aiohttp==3.6.2
+asyncpg
+pytest
+bs4

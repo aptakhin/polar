@@ -84,20 +84,20 @@ class EvalResult:
 
     def merge_match_result(self, result: "EvalResult"):
         if self.value is None:
-            self.value = ListC([])
+            self.value = ListN([])
 
         if result and result.value is not None:
             if isinstance(result.value, MatchResult):
                 self.value.value.append(result.value)
 
-            if isinstance(result.value, ListC) and all(isinstance(m, MatchResult) for m in result.value.value):
+            if isinstance(result.value, ListN) and all(isinstance(m, MatchResult) for m in result.value.value):
                 self.value.value.extend(result.value.value)
 
             # ---
             if isinstance(result.value, OutMessageEvent):
                 self.value.value.append(result.value)
 
-            if isinstance(result.value, ListC) and all(isinstance(m, OutMessageEvent) for m in result.value.value):
+            if isinstance(result.value, ListN): #and all(isinstance(m, OutMessageEvent) for m in result.value.value):
                 self.value.value.extend(result.value.value)
 
 
@@ -172,7 +172,7 @@ class Regexp(AstNode):
                     match_result.ranges.append(MatchRange(start, end))
                 values.append(match_result)
 
-        return EvalResult(value=ListC(values)) if values else None
+        return EvalResult(value=ListN(values)) if values else None
 
 
 class SimpleResponse(AstNode):
@@ -181,12 +181,21 @@ class SimpleResponse(AstNode):
         self.responses = responses
 
     async def eval(self, event: Event, context: Context) -> Optional[EvalResult]:
+        async def _eval(part):
+            if isinstance(part, str):
+                return OutMessageEvent(part)
+            else:
+                return await part.eval(event, context)
+
         random.seed(context["random_seed"])
         part = random.choice(self.responses)
+        if isinstance(part, OutMessageEvent):
+            part = [await _eval(p) for p in part.parts]
+
         if isinstance(part, str):
             part = OutMessageEvent(part)
 
-        return EvalResult(value=part)
+        return EvalResult(value=ListN(part))
 
 
 class Set(AstNode):
@@ -208,7 +217,7 @@ class Anchor:
         self.offset = offset
 
 
-class ListC(AstNode):
+class ListN(AstNode):
     def __init__(self, value):
         if not isinstance(value, list):
             raise RuntimeError("Must be list: %s" % value)
@@ -258,7 +267,7 @@ class AnchorFeature(AstNode):
                     "match": match,
                 })
 
-        return EvalResult(value=ListC(results))
+        return EvalResult(value=ListN(results))
 
 
 class NameFeature(AstNode):
@@ -285,7 +294,7 @@ class NameFeature(AstNode):
         if results is None:
             return None
 
-        if not isinstance(results.value, ListC):
+        if not isinstance(results.value, ListN):
             raise RuntimeError("Anchor object returned not list or none")
 
         anchor_results = results.value.value
@@ -296,11 +305,11 @@ class NameFeature(AstNode):
             vocab_entry = self.vocab.get(res["match"][0].lower())
             if not vocab_entry:
                 continue
-            # context[self.var] = vocab_entry["norm"]
+            context[self.var] = vocab_entry["norm"]
             # Context
             values.append(MatchResult())
 
-        return EvalResult(value=ListC(values)) if values else None
+        return EvalResult(value=ListN(values)) if values else None
 
 
 class If(AstNode):
@@ -311,8 +320,6 @@ class If(AstNode):
         self.else_ = else_
 
     async def eval(self, event: Event, context: Context) -> Optional[EvalResult]:
-        resp = CommandResult(state=CommandResult.OK)
-
         resp = await self.if_.eval(event, context)
         if resp.value:
             resp = await self.then_.eval(event, context)
@@ -328,7 +335,7 @@ class Print(AstNode):
         self.name = name
 
     async def eval(self, message: Event, context: Context) -> Optional[EvalResult]:
-        return context.get(self.name, "")
+        return OutMessageEvent(context.get(self.name, ""))
 
 
 class Empty(AstNode):
@@ -355,13 +362,14 @@ class RegexVariative(AstNode):
         pass
 
     def __init__(self, args):
+        super().__init__()
         self.args = args
         self._re = self._compile_re(self._build_re(self.args))
 
     @staticmethod
     def _format_word(word):
         if word.endswith("~"):
-            word = word[:-1] + "\w."
+            word = word[:-1] + r"\w."
         return word
 
     @classmethod
@@ -385,12 +393,15 @@ class RegexVariative(AstNode):
         return re.compile(r, flags=re.MULTILINE | re.IGNORECASE)
 
     async def eval(self, event: Event, context: Context) -> Optional[EvalResult]:
+        if not isinstance(event, UserMessage):
+            return None
+
         m = re.search(self._re, event.text)
         value = None
         if m:
             match_result = MatchResult()
             match_result.ranges.append(MatchRange(m.start(0), m.end(0)))
-            value = ListC([match_result])
+            value = ListN([match_result])
         return EvalResult(state=CommandResult.OK, value=value)
 
 
@@ -428,7 +439,7 @@ class Flow(AstNode):
 
 
 class Rule:
-    def __init__(self, *, name, weight=1):
+    def __init__(self, *, name=None, weight=1):
         self.name = name
         self.weight = weight
         self.condition = Flow([])
@@ -457,39 +468,47 @@ class ConsoleIO(BaseIO):
 
 
 class Executor:
+
+    async def _execute_event(self, event: Event, bot: Bot, context: Context):
+        matched_results = []
+
+        for rule_idx, rule in enumerate(bot.rules):
+            resp = await rule.condition.eval(event, context)
+            if resp is None or resp.value is None:
+                continue
+
+            if isinstance(resp.value, ListN) and not resp.value.value:
+                continue
+
+            if isinstance(resp.value, MatchResult):
+                matched_results.append((rule_idx, resp))
+            elif isinstance(resp.value, ListN) and all(isinstance(m, MatchResult) for m in resp.value.value):
+                matched_results.extend([(rule_idx, r) for r in resp.value.value])
+            else:
+                raise RuntimeError("Response %s is not MatchResult or List[MatchResult]" % resp.value)
+
+        if not matched_results:
+            return None
+
+        best_response = matched_results[0]
+        rule_idx, match = best_response
+        rule = bot.rules[rule_idx]
+
+        response = await rule.flow.eval(event, context)
+
+        if response.value:
+            event = OutMessageEvent(parts=response.value.value)
+            return event
+        else:
+            return None
+
     async def loop(self, *, bot: Bot, context: Context, io: BaseIO):
         while True:
             event = await io.read_event()
 
-            matched_results = []
+            response_event = await self._execute_event(event, bot, context)
 
-            for rule_idx, rule in enumerate(bot.rules):
-                resp = await rule.condition.eval(event, context)
-                if resp is None or resp.value is None:
-                    continue
-
-                if isinstance(resp.value, ListC) and not resp.value.value:
-                    continue
-
-                if isinstance(resp.value, MatchResult):
-                    matched_results.append((rule_idx, resp))
-                elif isinstance(resp.value, ListC) and all(isinstance(m, MatchResult) for m in resp.value.value):
-                    matched_results.extend([(rule_idx, r) for r in resp.value.value])
-                else:
-                    raise RuntimeError("Response %s is not MatchResult or List[MatchResult]" % resp.value)
-
-            if not matched_results:
-                continue
-
-            best_response = matched_results[0]
-            rule_idx, match = best_response
-            rule = bot.rules[rule_idx]
-
-            response = await rule.flow.eval(event, context)
-
-
-            if response.value:
-                event = OutMessageEvent(parts=response.value.value)
-                await io.send_event(event)
+            if response_event:
+                await io.send_event(response_event)
             else:
                 pass  # Log it too

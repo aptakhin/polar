@@ -1,0 +1,261 @@
+{
+    "rules": [
+        {
+            "name": "name",
+            "order": -1,
+            "flow": {
+                "commands": [
+                    {
+                        "vocab": "custom",
+                        "type": "namefeature",
+                        "var": "name"
+                    }
+                ],
+                "type": "flow"
+            },
+            "type": "rule"
+        },
+        {
+            "name": "name",
+            "order": 0,
+            "flow": {
+                "commands": [
+                    {
+                        "is_condition": true,
+                        "types": null,
+                        "regexps": [
+                            "привет_как_дела"
+                        ],
+                        "type": "regexp"
+                    },
+                    {
+                        "is_condition": false,
+                        "types": null,
+                        "responses": [
+                            {
+                                "parts": [
+                                    "И_тебе_привет"
+                                ],
+                                "type": "outmessageevent"
+                            }
+                        ],
+                        "type": "simpleresponse"
+                    },
+                    {
+                        "is_condition": false,
+                        "types": null,
+                        "name": "secret",
+                        "value": "1",
+                        "type": "set"
+                    },
+                    {
+                        "is_condition": false,
+                        "types": null,
+                        "type": "exitcommand"
+                    }
+                ],
+                "type": "flow"
+            },
+            "type": "rule"
+        },
+        {
+            "name": "name",
+            "order": 1,
+            "flow": {
+                "commands": [
+                    {
+                        "is_condition": true,
+                        "types": null,
+                        "regexps": [
+                            "привет",
+                            "прив"
+                        ],
+                        "type": "regexp"
+                    },
+                    {
+                        "is_condition": false,
+                        "types": null,
+                        "if_": {
+                            "var": "name",
+                            "type": "notempty"
+                        },
+                        "then_": {
+                            "commands": [
+                                {
+                                    "is_condition": false,
+                                    "types": null,
+                                    "if_": {
+                                        "var": "greeted",
+                                        "type": "notempty"
+                                    },
+                                    "then_": {
+                                        "commands": [
+                                            {
+                                                "is_condition": false,
+                                                "types": null,
+                                                "responses": [
+                                                    {
+                                                        "parts": [
+                                                            {
+                                                                "is_condition": false,
+                                                                "types": null,
+                                                                "name": "name",
+                                                                "type": "print"
+                                                            },
+                                                            ", привет ещё раз!"
+                                                        ],
+                                                        "type": "outmessageevent"
+                                                    }
+                                                ],
+                                                "type": "simpleresponse"
+                                            }
+                                        ],
+                                        "type": "flow"
+                                    },
+                                    "else_": {
+                                        "commands": [
+                                            {
+                                                "is_condition": false,
+                                                "types": null,
+                                                "responses": [
+                                                    {
+                                                        "parts": [
+                                                            "Привет, ",
+                                                            {
+                                                                "is_condition": false,
+                                                                "types": null,
+                                                                "name": "name",
+                                                                "type": "print"
+                                                            },
+                                                            "!"
+                                                        ],
+                                                        "type": "outmessageevent"
+                                                    }
+                                                ],
+                                                "type": "simpleresponse"
+                                            }
+                                        ],
+                                        "type": "flow"
+                                    },
+                                    "type": "if"
+                                }
+                            ],
+                            "type": "flow"
+                        },
+                        "else_": {
+                            "commands": [
+                                {
+                                    "is_condition": false,
+                                    "types": null,
+                                    "if_": {
+                                        "var": "greeted",
+                                        "type": "notempty"
+                                    },
+                                    "then_": {
+                                        "commands": [
+                                            {
+                                                "is_condition": false,
+                                                "types": null,
+                                                "responses": [
+                                                    {
+                                                        "parts": [
+                                                            "И тебе привет снова!"
+                                                        ],
+                                                        "type": "outmessageevent"
+                                                    },
+                                                    {
+                                                        "parts": [
+                                                            "Приветище ещё раз!"
+                                                        ],
+                                                        "type": "outmessageevent"
+                                                    }
+                                                ],
+                                                "type": "simpleresponse"
+                                            }
+                                        ],
+                                        "type": "flow"
+                                    },
+                                    "else_": {
+                                        "commands": [
+                                            {
+                                                "is_condition": false,
+                                                "types": null,
+                                                "responses": [
+                                                    {
+                                                        "parts": [
+                                                            "И тебе привет"
+                                                        ],
+                                                        "type": "outmessageevent"
+                                                    },
+                                                    {
+                                                        "parts": [
+                                                            "Приветище!"
+                                                        ],
+                                                        "type": "outmessageevent"
+                                                    }
+                                                ],
+                                                "type": "simpleresponse"
+                                            }
+                                        ],
+                                        "type": "flow"
+                                    },
+                                    "type": "if"
+                                }
+                            ],
+                            "type": "flow"
+                        },
+                        "type": "if"
+                    },
+                    {
+                        "is_condition": false,
+                        "types": null,
+                        "name": "greeted",
+                        "value": "1",
+                        "type": "set"
+                    }
+                ],
+                "type": "flow"
+            },
+            "type": "rule"
+        },
+        {
+            "name": "name",
+            "order": 2,
+            "flow": {
+                "commands": [
+                    {
+                        "is_condition": true,
+                        "types": null,
+                        "regexps": [
+                            "как дела",
+                            "дела"
+                        ],
+                        "type": "regexp"
+                    },
+                    {
+                        "is_condition": false,
+                        "types": null,
+                        "responses": [
+                            {
+                                "parts": [
+                                    "Дела супер!"
+                                ],
+                                "type": "outmessageevent"
+                            },
+                            {
+                                "parts": [
+                                    "Дела отлично!"
+                                ],
+                                "type": "outmessageevent"
+                            }
+                        ],
+                        "type": "simpleresponse"
+                    }
+                ],
+                "type": "flow"
+            },
+            "type": "rule"
+        }
+    ],
+    "type": "bot"
+}

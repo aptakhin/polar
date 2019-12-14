@@ -1,0 +1,3 @@
+import os
+
+LOGIC_POSTGRES_DSN = os.getenv("POLAR_LOGIC_POSTGRES_DSN")
