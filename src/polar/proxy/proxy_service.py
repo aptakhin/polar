@@ -30,7 +30,8 @@ async def websocket_handler(request):
                 resp_events = await meta.push_request(event, context)
                 if resp_events:
                     for resp_event in resp_events:
-                        await ws.send_json({"type": "text", "text": str(resp_event)})
+                        resp_text = "".join(resp_event.parts)
+                        await ws.send_json({"type": "text", "text": resp_text})
 
         elif msg.type == aiohttp.WSMsgType.CLOSE:
             print("websocket connection closed")

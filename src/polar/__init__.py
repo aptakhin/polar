@@ -82,23 +82,32 @@ class EvalResult:
         self.state: int = state
         self.value = value
 
-    def merge_match_result(self, result: "EvalResult"):
+    def merge_match_result(self, result: "EvalResult", is_conditions: bool):
+        """
+        Merge result with other
+        For conditions we use other types
+        :param result:
+        :param is_conditions:
+        :return:
+        """
+
         if self.value is None:
             self.value = ListN([])
 
         if result and result.value is not None:
-            if isinstance(result.value, MatchResult):
-                self.value.value.append(result.value)
+            if is_conditions:
+                if isinstance(result.value, MatchResult):
+                    self.value.value.append(result.value)
 
-            if isinstance(result.value, ListN) and all(isinstance(m, MatchResult) for m in result.value.value):
-                self.value.value.extend(result.value.value)
+                if isinstance(result.value, ListN) and all(isinstance(m, MatchResult) for m in result.value.value):
+                    self.value.value.extend(result.value.value)
 
-            # ---
-            if isinstance(result.value, OutMessageEvent):
-                self.value.value.append(result.value)
+            else:
+                if isinstance(result.value, OutMessageEvent):
+                    self.value.value.append(result.value)
 
-            if isinstance(result.value, ListN): #and all(isinstance(m, OutMessageEvent) for m in result.value.value):
-                self.value.value.extend(result.value.value)
+                if isinstance(result.value, ListN): #and all(isinstance(m, OutMessageEvent) for m in result.value.value):
+                    self.value.value.extend(result.value.value)
 
 
 class AstNode:
@@ -335,7 +344,7 @@ class Print(AstNode):
         self.name = name
 
     async def eval(self, message: Event, context: Context) -> Optional[EvalResult]:
-        return OutMessageEvent(context.get(self.name, ""))
+        return EvalResult(value=OutMessageEvent(context.get(self.name, "")))
 
 
 class Empty(AstNode):
@@ -343,8 +352,7 @@ class Empty(AstNode):
         self.var = var
 
     async def eval(self, event: Event, context: Context) -> Optional[EvalResult]:
-        return EvalResult(state=CommandResult.OK,
-                          value=not bool(context.get(self.var)))
+        return EvalResult(value=not bool(context.get(self.var)))
 
 
 class NotEmpty(AstNode):
@@ -352,8 +360,7 @@ class NotEmpty(AstNode):
         self.var = var
 
     async def eval(self, event: Event, context: Context) -> Optional[EvalResult]:
-        return EvalResult(state=CommandResult.OK,
-                          value=bool(context.get(self.var)))
+        return EvalResult(value=bool(context.get(self.var)))
 
 
 class RegexVariative(AstNode):
@@ -406,8 +413,9 @@ class RegexVariative(AstNode):
 
 
 class Flow(AstNode):
-    def __init__(self, commands):
+    def __init__(self, commands, is_conditions=False):
         self.commands = commands
+        self.is_conditions = is_conditions
 
     async def eval(self, event: Event, context: Context) -> Optional[EvalResult]:
         result = EvalResult()
@@ -415,7 +423,7 @@ class Flow(AstNode):
         for command in self.commands:
             res = await self._eval_command(command, event, context)
 
-            result.merge_match_result(res)
+            result.merge_match_result(res, is_conditions=self.is_conditions)
 
             if res and res.state in (CommandResult.EXIT, CommandResult.BREAK):
                 return result
@@ -442,7 +450,7 @@ class Rule:
     def __init__(self, *, name=None, weight=1):
         self.name = name
         self.weight = weight
-        self.condition = Flow([])
+        self.condition = Flow([], is_conditions=True)
         self.flow = Flow([])
 
 
@@ -479,6 +487,8 @@ class Executor:
             if isinstance(resp.value, ListN) and not resp.value.value:
                 continue
 
+            # Merge MatchResult(s) and store in all results
+
             if isinstance(resp.value, MatchResult):
                 matched_results.append((rule_idx, resp))
             elif isinstance(resp.value, ListN) and all(isinstance(m, MatchResult) for m in resp.value.value):
@@ -489,6 +499,7 @@ class Executor:
         if not matched_results:
             return None
 
+        # TODO: Sort by and peek suitable results to evaluate. Currently first
         best_response = matched_results[0]
         rule_idx, match = best_response
         rule = bot.rules[rule_idx]
@@ -496,8 +507,7 @@ class Executor:
         response = await rule.flow.eval(event, context)
 
         if response.value:
-            event = OutMessageEvent(parts=response.value.value)
-            return [event]
+            return response.value.value
         else:
             return None
 
@@ -505,9 +515,10 @@ class Executor:
         while True:
             event = await io.read_event()
 
-            response_event = await self._execute_event(event, bot, context)
+            response_events = await self._execute_event(event, bot, context)
 
-            if response_event:
-                await io.send_event(response_event)
+            if response_events:
+                for response_event in response_events:
+                    await io.send_event(response_event)
             else:
                 pass  # Log it too
