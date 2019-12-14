@@ -1,6 +1,6 @@
-FROM python:3.7.3-slim-stretch
+FROM python:3.7.5-slim-stretch
 
-RUN apt-get update && apt-get upgrade -y && apt-get install -y python-dev gcc
+RUN apt-get update && apt-get upgrade -y
 
 WORKDIR /sources
 ADD ./requirements.txt /sources/requirements.txt
