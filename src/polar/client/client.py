@@ -9,7 +9,7 @@ BOT_ID = "0c8e467f-a24e-4f72-9f16-58d88ea3aae3"
 
 async def main():
     async with aiohttp.ClientSession() as session:
-        async with session.ws_connect("http://localhost:8090/ws") as ws:
+        async with session.ws_connect("http://localhost:5000/ws") as ws:
 
             await ws.send_str(json.dumps({"type": "hello", "bot_id": BOT_ID}))
 
@@ -25,6 +25,7 @@ async def main():
                         print("-->", msg.data)
                 except concurrent.futures._base.TimeoutError:
                     pass
+
 
 
 if __name__ == "__main__":

@@ -1,3 +1,5 @@
 import os
 
 LOGIC_POSTGRES_DSN = os.getenv("POLAR_LOGIC_POSTGRES_DSN")
+
+PROXY_PORT = int(os.getenv("POLAR_PROXY_RUN_PORT", "5000"))

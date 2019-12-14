@@ -54,7 +54,7 @@ def main():
         web.post('/Chat.init', legacy.chat_init),
         web.post('/Chat.request', legacy.chat_request),
     ])
-    web.run_app(app, port=8090)
+    web.run_app(app, port=proxy_conf.PROXY_PORT)
 
 
 if __name__ == "__main__":

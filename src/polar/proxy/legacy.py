@@ -15,7 +15,17 @@ async def chat_init(request):
     session_id = await meta.init_session(js["uuid"])
 
     resp = {
-        "cuid": str(session_id),
+        "result": {
+            "cuid": str(session_id),
+            "inf": {
+                "name": None,
+            },
+            "text": {
+                "delay": "",
+            },
+            "events": {},
+        },
+        "id": "0",
     }
     return json_response(resp)
 
@@ -33,31 +43,44 @@ async def chat_request(request):
         resp_events = await meta.push_request(event, session_id)
 
         if resp_events:
+            texts = []
             for resp_event in resp_events:
                 resp_text = "".join(resp_event.parts)
-                text += resp_text + "<br>"
+                texts.append(resp_text)
+
+            text = "<br>".join(texts)
 
     resp = {
-        "text": {
-            "value": text,
-            "delay": "",
-            "status": "",
+        "result": {
+            "text": {
+                "value": text,
+                "delay": "",
+                "status": "",
+            },
+            "animation": {
+                "type": "",
+                "duration": "",
+                "isFaded": "",
+            },
+            "navigate": {
+                "url": "",
+            },
+            "token": "",
+            "showExpSys": "",
+            "rubric": "",
+            "cuid": "",
+            "context": {
+                # "auto_event_ids": "",
+                # "auto_request_counter": "1",
+                # "auto_response_type": "user request from main base"
+            },
+            # "_arm_ext": {
+            #     "template_id": null,
+            #     "suite_id": null
+            # },
+            # "id": "2f5b2249-fa9e-4a40-80e0-5dcee0d8ea9f"
         },
-        "animation": {
-            "type": "",
-            "duration": "",
-            "isFaded": "",
-        },
-        "navigate": {
-            "url": "",
-        },
-        "token": "",
-        "showExpSys": "",
-        "rubric": "",
-        "cuid": "",
-        "context": {},
-        # "_arm_ext": self._arm_ext,
-        # "id": self.message_id,
+        "id": "0",
     }
 
     return json_response(resp)
