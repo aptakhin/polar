@@ -452,7 +452,6 @@ class Bot:
 
     def add_rules(self, rules):
         self.rules.extend(rules)
-        # self.rules.sort(key=lambda rule: rule.order)
 
 
 class ConsoleIO(BaseIO):
@@ -498,7 +497,7 @@ class Executor:
 
         if response.value:
             event = OutMessageEvent(parts=response.value.value)
-            return event
+            return [event]
         else:
             return None
 

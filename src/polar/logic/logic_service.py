@@ -7,7 +7,7 @@ class LogicService:
         self._backend = backend
 
     async def get_bot(self, bot_id: str, version: int):
-        templates = self._backend.get_templates(bot_id)
+        templates = await self._backend.get_templates(bot_id)
 
         parser = ArmBotParser()
         bot = parser.load_bot(templates)

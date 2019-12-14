@@ -1,9 +1,10 @@
 import asyncio
-
 import aiohttp
 import asyncpg
 from aiohttp import web
-from polar.meta.meta_service import MetaService
+
+from polar import UserMessage
+from polar.meta.meta_service import MetaService, MetaContext
 from polar.proxy import proxy_conf
 
 
@@ -13,18 +14,23 @@ async def websocket_handler(request):
 
     meta: MetaService = request.app["meta"]
 
+    context: MetaContext = None
 
     while not ws.closed:
         msg = await ws.receive()
 
         if msg.type == aiohttp.WSMsgType.TEXT:
             print("Got", msg.data)
+            js = msg.json()
 
-            context = await meta.init_session("437e4d60-dad7-4ad7-a433-98d21dbecd97")
-
-            await meta.push_request(msg.data, context)
-            if msg.data == "close":
-                await ws.close()
+            if js["type"] == "hello":
+                context = await meta.init_session(js["bot_id"])
+            elif js["type"] == "text":
+                event = UserMessage(js["text"])
+                resp_events = await meta.push_request(event, context)
+                if resp_events:
+                    for resp_event in resp_events:
+                        await ws.send_json({"type": "text", "text": str(resp_event)})
 
         elif msg.type == aiohttp.WSMsgType.CLOSE:
             print("websocket connection closed")
@@ -35,18 +41,14 @@ async def websocket_handler(request):
 
 
 def main():
-    # web.Application
-    # server = web.Server(websocket_handler)
-    # runner = web.ServerRunner(server)
-    # await runner.setup()
-    # site = web.TCPSite(runner, "localhost", 8080)
-    # await site.start()
     app = web.Application()
 
     db_pool = asyncio.get_event_loop().run_until_complete(asyncpg.create_pool(dsn=proxy_conf.LOGIC_POSTGRES_DSN))
 
     app["meta"] = MetaService(db_pool)
-    app.add_routes([web.get('/ws', websocket_handler)])
+    app.add_routes([
+        web.get('/ws', websocket_handler),
+    ])
     web.run_app(app, port=8090)
 
 

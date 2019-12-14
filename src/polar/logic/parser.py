@@ -30,6 +30,8 @@ class ArmBotParser:
         rules = self.parse_rules(templates)
         bot.rules.extend(rules)
 
+        return bot
+
     @classmethod
     def parse_rules(cls, templates) -> List[Rule]:
         rules = []
@@ -85,7 +87,7 @@ class ArmBotParser:
                     cmd = sline[1:].lstrip()
 
 
-        rule = Rule(name=template["template_id"])
+        rule = Rule(name=template["id"])
         rule.condition.commands.extend(conditions)
         rule.flow.commands.extend([SimpleResponse(simple_responses)])
 
