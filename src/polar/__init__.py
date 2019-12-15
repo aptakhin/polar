@@ -1,16 +1,13 @@
-import abc
 import random
 import re
-from typing import List, Optional
+from abc import abstractmethod
+from typing import List, Optional, Union
 
 from frozendict import frozendict
 
 
 class Context(frozendict):
-    async def commit(self):
-        print("COMMITED")
-
-    # async def update
+    pass
 
 
 class Event:
@@ -37,11 +34,11 @@ class OutMessageEvent(Event):
 
 
 class BaseIO:
-    @abc.abstractmethod
+    @abstractmethod
     async def read_event(self) -> Event:
         pass
 
-    @abc.abstractmethod
+    @abstractmethod
     async def send_event(self, event: Event):
         pass
 
@@ -58,11 +55,7 @@ class CommandResult:
 
 
 class MatchRange:
-    start = None
-    end = None
-    weight = 1
-
-    def __init__(self, start, end, weight=1):
+    def __init__(self, start: int, end: int, weight: Union[int, float]=1):
         self.start = start
         self.end = end
         self.weight = weight
@@ -112,7 +105,7 @@ class AstNode:
         self.is_condition = is_condition
         self.types = types
 
-    @abc.abstractmethod
+    @abstractmethod
     async def eval(self, event: Event, context: Context) -> Optional[EvalResult]:
         pass
 
@@ -352,6 +345,9 @@ class RegexVariative(AstNode):
     class Any:
         pass
 
+    class Weighted:
+        weighted = 1.
+
     def __init__(self, args):
         super().__init__()
         self.args = args
@@ -377,7 +373,7 @@ class RegexVariative(AstNode):
 
             r += " "
 
-        return r.strip()
+        return r.rstrip()
 
     @staticmethod
     def _compile_re(r):
@@ -459,7 +455,6 @@ class ConsoleIO(BaseIO):
 
 
 class Executor:
-
     async def execute_event(self, event: Event, bot: Bot, context: Context):
         matched_results = []
 

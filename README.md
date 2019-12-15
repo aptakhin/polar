@@ -1,4 +1,10 @@
 
+
+Requirements:
+
+    postgresql with deployed arm2-gateway databases. No schema here
+    redis
+
 Install
 
     python3 -m venv venv

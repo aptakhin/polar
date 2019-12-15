@@ -1,4 +1,5 @@
 import copy
+import logging
 
 from polar import Executor, Event
 from polar.logic.backend import LogicPostgresBackend
@@ -6,6 +7,9 @@ from polar.logic.logic_service import LogicService
 from polar.meta.bot_storage import MetaBotStorage, MetaMemoryBotStorageBackend
 from polar.meta.session_storage import MetaSessionStorage, MetaSession, \
     MetaRedisSessionStorageBackend
+
+
+logger = logging.getLogger(__name__)
 
 
 class MetaService:
@@ -39,7 +43,7 @@ class MetaService:
 
         if not session:
             # pity
-            print("Can't find session", session_id)
+            logger.info("Can't find session %s", session_id)
             return None
 
         if session.context.get("update_every_request"):

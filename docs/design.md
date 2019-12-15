@@ -20,4 +20,4 @@ Contexts:
 - `user` User information stored in for bot
 - `bot` Global bot settings like api keys and other
 - `session` User session info
-
+- `rule` Rule in conditions can set local context variables, which can be applyed to session variables if rule will be evaluated

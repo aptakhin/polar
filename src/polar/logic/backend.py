@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from typing import List
 
 import asyncpg
 
@@ -6,7 +7,7 @@ import asyncpg
 class LogicBaseBackend:
 
     @abstractmethod
-    async def get_templates(self, bot_id):
+    async def get_templates(self, bot_id) -> List[dict]:
         pass
 
 
@@ -14,7 +15,7 @@ class LogicPostgresBackend(LogicBaseBackend):
     def __init__(self, db: asyncpg.pool):
         self.db = db
 
-    async def get_templates(self, bot_id):
+    async def get_templates(self, bot_id) -> List[dict]:
         async with self.db.acquire() as connection:
             result = await connection.fetch("""
                 SELECT * FROM suites s

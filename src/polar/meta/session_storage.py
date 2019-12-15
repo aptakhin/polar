@@ -52,14 +52,15 @@ class MetaMemorySessionStorageBackend(MetaSessionStorageBaseBackend):
 class MetaRedisSessionStorageBackend(MetaSessionStorageBaseBackend):
     def __init__(self, redis):
         self._redis = redis
+        self._prefix = "polar:session:"
 
     async def init(self, session: MetaSession):
         session_id = uuid.uuid4()
-        await self._redis.set(str(session_id), session.to_json())
+        await self._redis.set(self._prefix + str(session_id), session.to_json())
         return session_id
 
     async def get(self, meta_session_id):
-        result = await self._redis.get(str(meta_session_id), encoding="utf-8")
+        result = await self._redis.get(self._prefix + str(meta_session_id), encoding="utf-8")
         return MetaSession.from_json(result) if result else None
 
 
