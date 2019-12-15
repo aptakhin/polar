@@ -338,6 +338,14 @@ class Sleep(AstNode):
         return EvalResult()
 
 
+class PolarInvalidArguments(ValueError):
+    pass
+
+
+class PolarInternalError(RuntimeError):
+    pass
+
+
 class RegexVariative(AstNode):
 
     class Any:
@@ -346,10 +354,24 @@ class RegexVariative(AstNode):
     class Weighted:
         weighted = 1.
 
+        def __init__(self, arg):
+            RegexVariative._validate_arg(arg)
+            self.arg = arg
+
     def __init__(self, args):
         super().__init__()
         self.args = args
         self._re = self._compile_re(self._build_re(self.args))
+
+    @classmethod
+    def _validate_arg(cls, arg):
+        if isinstance(arg, cls.Weighted):
+            cls._validate_arg(arg.arg)
+        elif isinstance(arg, list):
+            all(cls._validate_arg(a) for a in arg)
+        elif not isinstance(arg, str):
+            raise PolarInvalidArguments("Arg in RegexVariative can be str, list of str or "
+                                        "Weighted from these. Got: %s %s" % (arg, type(arg)))
 
     @staticmethod
     def _format_word(word):
@@ -358,20 +380,24 @@ class RegexVariative(AstNode):
         return word
 
     @classmethod
+    def _build_arg(cls, arg):
+        if isinstance(arg, list):
+            vars = "|".join(cls._format_word(w) for w in arg)
+            r = f"({vars})"
+        elif arg == RegexVariative.Any or isinstance(arg, RegexVariative.Any):
+            r = ".*"
+        elif isinstance(arg, str):
+            r = cls._format_word(arg)
+        elif isinstance(arg, cls.Weighted):
+            r = cls._build_arg(arg.arg)
+        else:
+            raise PolarInternalError("Unexpected argument: %s %s" % (arg, type(arg)))
+
+        return r
+
+    @classmethod
     def _build_re(cls, args):
-        r = ""
-        for arg in args:
-            if isinstance(arg, list):
-                vars = "|".join(cls._format_word(w) for w in arg)
-                r += f"({vars})"
-            elif arg == RegexVariative.Any or isinstance(arg, RegexVariative.Any):
-                r += ".*"
-            elif isinstance(arg, str):
-                r += cls._format_word(arg)
-
-            r += " "
-
-        return r.rstrip()
+        return " ".join(cls._build_arg(arg) for arg in args)
 
     @staticmethod
     def _compile_re(r):
@@ -387,6 +413,7 @@ class RegexVariative(AstNode):
             match_result = MatchResult()
             match_result.ranges.append(MatchRange(m.start(0), m.end(0)))
             value = ListN([match_result])
+
         return EvalResult(state=CommandResult.OK, value=value)
 
 

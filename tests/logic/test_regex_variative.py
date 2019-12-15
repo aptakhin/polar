@@ -39,3 +39,23 @@ def test_rabbit():
     assert len(resp.value.value) == 1
     assert len(resp.value.value[0].ranges) == 1
     assert resp.value.value[0].ranges[0] == MatchRange(0, 14)
+
+
+def test_weighted_rabbit():
+    args = [
+        RegexVariative.Weighted(["1", "2", "3"]),
+        RegexVariative.Weighted("вышел"),
+        RegexVariative.Weighted(["зайч~", "маль~"]),
+    ]
+
+    rv = RegexVariative(args)
+    inter = Interactivity()
+
+    resp = asyncio.get_event_loop().run_until_complete(rv.eval(UserMessage("1 вышел зайчик"), Context(), inter))
+    assert len(resp.value.value) == 1
+    assert len(resp.value.value[0].ranges) == 1
+    assert resp.value.value[0].ranges[0] == MatchRange(0, 14)
+
+
+if __name__ == "__main__":
+    test_weighted_rabbit()
