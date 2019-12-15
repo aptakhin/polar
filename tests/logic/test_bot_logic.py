@@ -45,5 +45,81 @@ def test_trivial_logic():
     assert resp_events[0].parts[0] == "слон"
 
 
+def test_star_logic():
+    bot = Bot()
+
+    bot.add_rule(Rule(
+        condition=Flow([
+            RegexVariative([
+                RegexVariative.Any,
+            ])
+        ]),
+        flow=Flow([
+            SimpleResponse([OutMessageEvent("any")]),
+        ])
+    ))
+
+    bot.add_rule(Rule(
+        condition=Flow([
+            RegexVariative([
+                "cat",
+            ])
+        ]),
+        flow=Flow([
+            SimpleResponse([OutMessageEvent("dog")]),
+        ])
+    ))
+
+    event = UserMessage("dog")
+    resp_events = execute_event(event=event, bot=bot)
+    assert len(resp_events) == 1
+    assert len(resp_events[0].parts) == 1
+    assert resp_events[0].parts[0] == "any"
+
+    event = UserMessage("cat")
+    resp_events = execute_event(event=event, bot=bot)
+    assert len(resp_events) == 1
+    assert len(resp_events[0].parts) == 1
+    assert resp_events[0].parts[0] == "dog"
+
+
+def test_star_logic2():
+    bot = Bot()
+
+    bot.add_rule(Rule(
+        condition=Flow([
+            RegexVariative([
+                RegexVariative.Any,
+            ])
+        ]),
+        flow=Flow([
+            SimpleResponse([OutMessageEvent("any")]),
+        ])
+    ))
+
+    bot.add_rule(Rule(
+        condition=Flow([
+            RegexVariative([
+                "cat", RegexVariative.Any
+            ])
+        ]),
+        flow=Flow([
+            SimpleResponse([OutMessageEvent("dog")]),
+        ])
+    ))
+
+    event = UserMessage("dog")
+    resp_events = execute_event(event=event, bot=bot)
+    assert len(resp_events) == 1
+    assert len(resp_events[0].parts) == 1
+    assert resp_events[0].parts[0] == "any"
+
+    event = UserMessage("cat")
+    resp_events = execute_event(event=event, bot=bot)
+    assert len(resp_events) == 1
+    assert len(resp_events[0].parts) == 1
+    assert resp_events[0].parts[0] == "dog"
+
+
 if __name__ == "__main__":
     pytest.main(["-s", "-x", __file__])

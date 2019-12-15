@@ -352,11 +352,10 @@ class RegexVariative(AstNode):
         pass
 
     class Weighted:
-        weighted = 1.
-
-        def __init__(self, arg):
+        def __init__(self, arg, weight: Union[int, float]=1):
             RegexVariative._validate_arg(arg)
             self.arg = arg
+            self.weight = weight
 
     def __init__(self, args):
         super().__init__()
@@ -385,9 +384,9 @@ class RegexVariative(AstNode):
             vars = "|".join(cls._format_word(w) for w in arg)
             r = f"({vars})"
         elif arg == RegexVariative.Any or isinstance(arg, RegexVariative.Any):
-            r = ".*"
+            r = "(.*)"
         elif isinstance(arg, str):
-            r = cls._format_word(arg)
+            r = f"({cls._format_word(arg)})"
         elif isinstance(arg, cls.Weighted):
             r = cls._build_arg(arg.arg)
         else:
@@ -396,12 +395,41 @@ class RegexVariative(AstNode):
         return r
 
     @classmethod
+    def _is_any_arg(cls, arg):
+        return arg == cls.Any or isinstance(arg, cls.Weighted) and arg.arg == cls.Any
+
+    @classmethod
     def _build_re(cls, args):
-        return " ".join(cls._build_arg(arg) for arg in args)
+        built_args = [cls._build_arg(arg) for arg in args]
+
+        idx = 0
+        r = r""
+        while idx < len(built_args):
+            if idx > 0 and not cls._is_any_arg(args[idx]) and not cls._is_any_arg(args[idx - 1]):
+                r += r"\s+?"
+            r += built_args[idx]
+
+            idx += 1
+
+        return r
+
 
     @staticmethod
     def _compile_re(r):
         return re.compile(r, flags=re.MULTILINE | re.IGNORECASE)
+
+
+    @classmethod
+    def _weight_arg(cls, arg):
+        if isinstance(arg, cls.Weighted):
+            return arg.weight
+        elif arg == cls.Any:
+            return 0.5
+        else:
+            return 1.
+
+    def _calc_weight(self, match):
+        return sum(self._weight_arg(a) for a in self.args)
 
     async def eval(self, event: Event, context: Context, inter: Interactivity) -> Optional[EvalResult]:
         if not isinstance(event, UserMessage):
@@ -411,7 +439,8 @@ class RegexVariative(AstNode):
         value = None
         if m:
             match_result = MatchResult()
-            match_result.ranges.append(MatchRange(m.start(0), m.end(0)))
+            weight = self._calc_weight(m)
+            match_result.ranges.append(MatchRange(m.start(0), m.end(0), weight))
             value = ListN([match_result])
 
         return EvalResult(state=CommandResult.OK, value=value)
@@ -451,16 +480,19 @@ class Flow(AstNode):
 
 
 class Rule:
-    def __init__(self, *, name=None, weight=1):
+    def __init__(self, *, name=None, weight=1, condition=None, flow=None):
         self.name = name
         self.weight = weight
-        self.condition = Flow([])
-        self.flow = Flow([])
+        self.condition = condition or Flow([])
+        self.flow = flow or Flow([])
 
 
 class Bot:
     def __init__(self):
         self.rules: List[Rule] = []
+
+    def add_rule(self, rule):
+        self.rules.append(rule)
 
     def add_rules(self, rules):
         self.rules.extend(rules)
@@ -489,11 +521,16 @@ class Executor:
             else:
                 raise RuntimeError("Response %s is not MatchResult or List[MatchResult]" % resp.value)
 
+        def get_match_weight(match_result: MatchResult):
+            return sum(m.weight for m in match_result.ranges)
+
         if not matched_results:
             return None
 
+        sorted_results = sorted(matched_results, key=lambda res: -get_match_weight(res[1]))
+
         # TODO: Sort by and peek suitable results to evaluate. Currently first
-        best_response = matched_results[0]
+        best_response = sorted_results[0]
         rule_idx, match = best_response
         rule = bot.rules[rule_idx]
 
