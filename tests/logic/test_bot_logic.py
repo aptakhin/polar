@@ -1,9 +1,6 @@
-import asyncio
-
-from polar import Bot, Rule, RegexVariative, Flow, SimpleResponse, OutMessageEvent, Context, Executor, \
-    UserMessage, Interactivity
-from tests.common import LogInteractivity
-from tests.logic import test_input
+from polar import Bot, Rule, RegexVariative, Flow, SimpleResponse, OutMessageEvent, \
+    UserMessage
+from tests.logic import execute_event
 
 
 def test_logic():
@@ -34,13 +31,13 @@ def test_logic():
     bot.add_rules([rule_mind, rule_mind2])
 
     event = UserMessage("2 вышел зайчик")
-    resp_events = test_input(event=event, bot=bot)
+    resp_events = execute_event(event=event, bot=bot)
     assert len(resp_events) == 1
     assert len(resp_events[0].parts) == 1
     assert resp_events[0].parts[0] == "И, правда, вышел"
 
     event = UserMessage("крокодил")
-    resp_events = test_input(event=event, bot=bot)
+    resp_events = execute_event(event=event, bot=bot)
     assert len(resp_events) == 1
     assert len(resp_events[0].parts) == 1
     assert resp_events[0].parts[0] == "слон"

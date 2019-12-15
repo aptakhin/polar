@@ -4,7 +4,7 @@ from polar import UserMessage, Context, Executor, Bot
 from tests.common import LogInteractivity
 
 
-def test_input(event: UserMessage, bot: Bot, *, context=None, executor=None):
+def execute_event(event: UserMessage, bot: Bot, *, context=None, executor=None):
     context = context or Context({
         "random_seed": 123,
     })
