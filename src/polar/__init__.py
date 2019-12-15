@@ -413,23 +413,27 @@ class RegexVariative(AstNode):
 
         return r
 
-
     @staticmethod
     def _compile_re(r):
         return re.compile(r, flags=re.MULTILINE | re.IGNORECASE)
 
-
     @classmethod
-    def _weight_arg(cls, arg):
+    def _weight_arg(cls, arg, m):
         if isinstance(arg, cls.Weighted):
             return arg.weight
         elif arg == cls.Any:
-            return 0.5
+            if m[0] == m[1]:
+                # Small penalty for non-matching * made for case when exact match will be better
+                return -0.03
+            else:
+                # Small bonus for * matching
+                return 0.03
         else:
             return 1.
 
     def _calc_weight(self, match):
-        return sum(self._weight_arg(a) for a in self.args)
+        match_regs = match.regs[1:]
+        return sum(self._weight_arg(a, b) for a, b in zip(self.args, match_regs))
 
     async def eval(self, event: Event, context: Context, inter: Interactivity) -> Optional[EvalResult]:
         if not isinstance(event, UserMessage):
@@ -498,8 +502,38 @@ class Bot:
         self.rules.extend(rules)
 
 
+class ExecutorState:
+    def __init__(self, sorted_results):
+        self.sorted_results = sorted_results
+
+
 class Executor:
-    async def execute_event(self, event: Event, bot: Bot, context: Context, inter: Interactivity):
+    @classmethod
+    async def execute_event(cls, event: Event, bot: Bot, context: Context, inter: Interactivity):
+        matched_results = await cls._test_rules(event, bot, context)
+
+        if not matched_results:
+            return None
+
+        def get_match_weight(match_result: MatchResult):
+            return sum(m.weight for m in match_result.ranges)
+
+        sorted_results = sorted(matched_results, key=lambda res: -get_match_weight(res[1]))
+
+        # TODO: Peek suitable results to evaluate by range. Currently first best
+        best_response = sorted_results[0]
+        rule_idx, match = best_response
+        rule = bot.rules[rule_idx]
+
+        # We don't really care about result because all user output messages sent to inter instance
+        _ = await rule.flow.eval(event, context, inter)
+
+        return ExecutorState(
+            sorted_results=sorted_results,
+        )
+
+    @classmethod
+    async def _test_rules(cls, event: Event, bot: Bot, context: Context):
         matched_results = []
 
         dummy_inter = Interactivity()
@@ -521,22 +555,4 @@ class Executor:
             else:
                 raise RuntimeError("Response %s is not MatchResult or List[MatchResult]" % resp.value)
 
-        def get_match_weight(match_result: MatchResult):
-            return sum(m.weight for m in match_result.ranges)
-
-        if not matched_results:
-            return None
-
-        sorted_results = sorted(matched_results, key=lambda res: -get_match_weight(res[1]))
-
-        # TODO: Sort by and peek suitable results to evaluate. Currently first
-        best_response = sorted_results[0]
-        rule_idx, match = best_response
-        rule = bot.rules[rule_idx]
-
-        response = await rule.flow.eval(event, context, inter)
-
-        if response.value:
-            return response.value.value
-        else:
-            return None
+        return matched_results

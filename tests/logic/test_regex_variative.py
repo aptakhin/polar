@@ -59,7 +59,7 @@ def test_star():
     resp = asyncio.get_event_loop().run_until_complete(rv.eval(UserMessage("cat"), Context(), inter))
     assert len(resp.value.value) == 1
     assert len(resp.value.value[0].ranges) == 1
-    assert resp.value.value[0].ranges[0] == MatchRange(0, 3, 0.5)
+    assert resp.value.value[0].ranges[0] == MatchRange(0, 3, 0.03)
 
 
 def test_star_merge():
@@ -74,7 +74,7 @@ def test_star_merge():
     resp = asyncio.get_event_loop().run_until_complete(rv.eval(UserMessage("cat"), Context(), inter))
     assert len(resp.value.value) == 1
     assert len(resp.value.value[0].ranges) == 1
-    assert resp.value.value[0].ranges[0] == MatchRange(0, 3, 1.5)
+    assert resp.value.value[0].ranges[0] == MatchRange(0, 3, 0.97)
 
 
 def test_weighted_rabbit():

@@ -100,25 +100,30 @@ def test_star_logic2():
     bot.add_rule(Rule(
         condition=Flow([
             RegexVariative([
+                "cat"
+            ])
+        ]),
+        flow=Flow([
+            SimpleResponse([OutMessageEvent("dog1")]),
+        ])
+    ))
+
+    bot.add_rule(Rule(
+        condition=Flow([
+            RegexVariative([
                 "cat", RegexVariative.Any
             ])
         ]),
         flow=Flow([
-            SimpleResponse([OutMessageEvent("dog")]),
+            SimpleResponse([OutMessageEvent("dog2")]),
         ])
     ))
-
-    event = UserMessage("dog")
-    resp_events = execute_event(event=event, bot=bot)
-    assert len(resp_events) == 1
-    assert len(resp_events[0].parts) == 1
-    assert resp_events[0].parts[0] == "any"
 
     event = UserMessage("cat")
     resp_events = execute_event(event=event, bot=bot)
     assert len(resp_events) == 1
     assert len(resp_events[0].parts) == 1
-    assert resp_events[0].parts[0] == "dog"
+    assert resp_events[0].parts[0] == "dog1"
 
 
 if __name__ == "__main__":
