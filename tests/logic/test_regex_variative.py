@@ -1,5 +1,7 @@
 import asyncio
 
+import pytest
+
 from polar import RegexVariative, UserMessage, Context, MatchRange, Interactivity
 
 
@@ -58,4 +60,4 @@ def test_weighted_rabbit():
 
 
 if __name__ == "__main__":
-    test_weighted_rabbit()
+    pytest.main(["-s", "-x", __file__])

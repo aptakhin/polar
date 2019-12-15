@@ -1,9 +1,11 @@
+import pytest
+
 from polar import Bot, Rule, RegexVariative, Flow, SimpleResponse, OutMessageEvent, \
     UserMessage
 from tests.logic import execute_event
 
 
-def test_logic():
+def test_trivial_logic():
     bot = Bot()
 
     rule_mind = Rule(name="name")
@@ -43,4 +45,5 @@ def test_logic():
     assert resp_events[0].parts[0] == "слон"
 
 
-test_logic()
+if __name__ == "__main__":
+    pytest.main(["-s", "-x", __file__])

@@ -1,5 +1,7 @@
 import textwrap
 
+import pytest
+
 from polar import RegexVariative, SimpleResponse
 from polar.logic.parser import ArmBotParser
 
@@ -48,4 +50,6 @@ def test_rule_parse_cat():
     assert rule.flow.commands[0].responses[0].parts == ["1"]
 
 
-test_rule_parse_cat()
+if __name__ == "__main__":
+    pytest.main(["-s", "-x", __file__])
+
