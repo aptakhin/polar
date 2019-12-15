@@ -1,7 +1,24 @@
+import logging
+
 from aiohttp.web_response import json_response
 
-from polar import UserMessage
+from polar import UserMessage, Interactivity, Event, OutMessageEvent
 from polar.meta.meta_service import MetaService
+
+
+logger = logging.getLogger(__name__)
+
+
+class LegacyInteractivity(Interactivity):
+    def __init__(self):
+        self.messages = []
+
+    async def send_event(self, event: Event):
+        if not isinstance(event, OutMessageEvent):
+            raise RuntimeError("Only OutMessageEvent cant be used in interactive")
+
+        resp_text = "".join(event.parts)
+        self.messages.append(resp_text)
 
 
 async def chat_init(request):
@@ -40,15 +57,10 @@ async def chat_request(request):
 
         session_id = js["cuid"]
         event = UserMessage(js["text"])
-        resp_events = await meta.push_request(event, session_id)
+        inter = LegacyInteractivity()
+        await meta.push_request(event, session_id, inter)
 
-        if resp_events:
-            texts = []
-            for resp_event in resp_events:
-                resp_text = "".join(resp_event.parts)
-                texts.append(resp_text)
-
-            text = "<br>".join(texts)
+        text = "<br>".join(inter.messages)
 
     resp = {
         "result": {
