@@ -1,7 +1,7 @@
 import copy
 import logging
 
-from polar import Executor, Event
+from polar import Executor, Event, Interactivity
 from polar.logic.backend import LogicPostgresBackend
 from polar.logic.logic_service import LogicService
 from polar.meta.bot_storage import MetaBotStorage, MetaMemoryBotStorageBackend
@@ -38,7 +38,7 @@ class MetaService:
 
         return session_id
 
-    async def push_request(self, event: Event, session_id):
+    async def push_request(self, event: Event, session_id, inter: Interactivity):
         session = await self._sessions.get(session_id)
 
         if not session:
@@ -56,5 +56,5 @@ class MetaService:
         context = copy.deepcopy(session.context)
         context["random_seed"] = 123
 
-        resp_event = await self._executor.execute_event(event=event, bot=bot, context=context)
+        resp_event = await self._executor.execute_event(event=event, bot=bot, context=context, inter=inter)
         return resp_event

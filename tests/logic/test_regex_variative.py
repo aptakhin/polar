@@ -1,6 +1,6 @@
 import asyncio
 
-from polar import RegexVariative, UserMessage, Context, MatchRange
+from polar import RegexVariative, UserMessage, Context, MatchRange, Interactivity
 
 
 def test_word():
@@ -28,13 +28,14 @@ def test_rabbit():
     ]
 
     rv = RegexVariative(args)
+    inter = Interactivity()
 
-    resp = asyncio.get_event_loop().run_until_complete(rv.eval(UserMessage("1 вышел зайчик"), Context()))
+    resp = asyncio.get_event_loop().run_until_complete(rv.eval(UserMessage("1 вышел зайчик"), Context(), inter))
     assert len(resp.value.value) == 1
     assert len(resp.value.value[0].ranges) == 1
     assert resp.value.value[0].ranges[0] == MatchRange(0, 14)
 
-    resp = asyncio.get_event_loop().run_until_complete(rv.eval(UserMessage("2 вышел мальчик"), Context()))
+    resp = asyncio.get_event_loop().run_until_complete(rv.eval(UserMessage("2 вышел мальчик"), Context(), inter))
     assert len(resp.value.value) == 1
     assert len(resp.value.value[0].ranges) == 1
     assert resp.value.value[0].ranges[0] == MatchRange(0, 14)

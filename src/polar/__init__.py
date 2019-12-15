@@ -1,3 +1,4 @@
+import asyncio
 import random
 import re
 from abc import abstractmethod
@@ -33,11 +34,7 @@ class OutMessageEvent(Event):
         return "OutMessageEvent(%s)" % repr(self.parts)
 
 
-class BaseIO:
-    @abstractmethod
-    async def read_event(self) -> Event:
-        pass
-
+class Interactivity:
     @abstractmethod
     async def send_event(self, event: Event):
         pass
@@ -72,12 +69,11 @@ class EvalResult:
         self.state: int = state
         self.value = value
 
-    def merge_match_result(self, result: "EvalResult", is_conditions: bool):
+    def merge_match_result(self, result: "EvalResult"):
         """
         Merge result with other
         For conditions we use other types
         :param result:
-        :param is_conditions:
         :return:
         """
 
@@ -85,19 +81,11 @@ class EvalResult:
             self.value = ListN([])
 
         if result and result.value is not None:
-            if is_conditions:
-                if isinstance(result.value, MatchResult):
-                    self.value.value.append(result.value)
+            if isinstance(result.value, MatchResult):
+                self.value.value.append(result.value)
 
-                if isinstance(result.value, ListN) and all(isinstance(m, MatchResult) for m in result.value.value):
-                    self.value.value.extend(result.value.value)
-
-            else:
-                if isinstance(result.value, OutMessageEvent):
-                    self.value.value.append(result.value)
-
-                if isinstance(result.value, ListN): #and all(isinstance(m, OutMessageEvent) for m in result.value.value):
-                    self.value.value.extend(result.value.value)
+            if isinstance(result.value, ListN) and all(isinstance(m, MatchResult) for m in result.value.value):
+                self.value.value.extend(result.value.value)
 
 
 class AstNode:
@@ -106,7 +94,7 @@ class AstNode:
         self.types = types
 
     @abstractmethod
-    async def eval(self, event: Event, context: Context) -> Optional[EvalResult]:
+    async def eval(self, event: Event, context: Context, inter: Interactivity) -> Optional[EvalResult]:
         pass
 
     def __repr__(self):
@@ -117,16 +105,16 @@ class MatchResult(AstNode):
     def __init__(self):
         self.ranges: List[MatchRange] = []
 
-    async def eval(self, event: Event, context: Context) -> Optional[EvalResult]:
-        pass
+
+class MatchResultEvent(Event):
+    def __init__(self):
+        self.ranges: List[MatchRange] = []
+
 
 
 class Condition(AstNode):
     def __init__(self, *condition):
         self.condition = condition
-
-    async def eval(self, event: Event, context: Context) -> Optional[EvalResult]:
-        pass
 
 
 class BreakAstNode(AstNode):
@@ -142,7 +130,7 @@ class Regexp(AstNode):
         super().__init__(is_condition=True)
         self.regexps = regexps
 
-    async def eval(self, event: Event, context: Context) -> Optional[EvalResult]:
+    async def eval(self, event: Event, context: Context, inter: Interactivity) -> Optional[EvalResult]:
         if not isinstance(event, UserMessage):
             return None
 
@@ -166,7 +154,7 @@ class SimpleResponse(AstNode):
         super().__init__()
         self.responses = responses
 
-    async def eval(self, event: Event, context: Context) -> Optional[EvalResult]:
+    async def eval(self, event: Event, context: Context, inter: Interactivity) -> Optional[EvalResult]:
         async def _eval(part):
             if isinstance(part, str):
                 return OutMessageEvent(part)
@@ -179,7 +167,10 @@ class SimpleResponse(AstNode):
             part = [await _eval(p) for p in part.parts]
 
         if isinstance(part, str):
-            part = OutMessageEvent(part)
+            part = [OutMessageEvent(part)]
+
+        for p in part:
+            await inter.send_event(p)
 
         return EvalResult(value=ListN(part))
 
@@ -190,7 +181,7 @@ class Set(AstNode):
         self.name = name
         self.value = value
 
-    async def eval(self, event: Event, context: Context) -> Optional[EvalResult]:
+    async def eval(self, event: Event, context: Context, inter: Interactivity) -> Optional[EvalResult]:
         context[self.name] = self.value
         await context.commit()
 
@@ -209,9 +200,6 @@ class ListN(AstNode):
             raise RuntimeError("Must be list: %s" % value)
         self.value = value
 
-    async def eval(self, event: Event, context: Context) -> Optional[EvalResult]:
-        return None
-
 
 class AnchorFeature(AstNode):
     def __init__(self, *, var, anchors):
@@ -219,7 +207,7 @@ class AnchorFeature(AstNode):
         self.var = var
         self.anchors = anchors
 
-    async def eval(self, event: Event, context: Context) -> Optional[EvalResult]:
+    async def eval(self, event: Event, context: Context, inter: Interactivity) -> Optional[EvalResult]:
         if not isinstance(event, UserMessage):
             return None
 
@@ -275,7 +263,7 @@ class NameFeature(AstNode):
         ]
         self.anchor = AnchorFeature(anchors=anchors, var=None)
 
-    async def eval(self, event: Event, context: Context) -> Optional[EvalResult]:
+    async def eval(self, event: Event, context: Context, inter: Interactivity) -> Optional[EvalResult]:
         results = await self.anchor.eval(event, None)
         if results is None:
             return None
@@ -299,18 +287,18 @@ class NameFeature(AstNode):
 
 
 class If(AstNode):
-    def __init__(self, if_, then_, else_=None):
+    def __init__(self, if_: AstNode, then_: AstNode, else_: Optional[AstNode]=None):
         super().__init__()
         self.if_ = if_
         self.then_ = then_
         self.else_ = else_
 
-    async def eval(self, event: Event, context: Context) -> Optional[EvalResult]:
-        resp = await self.if_.eval(event, context)
+    async def eval(self, event: Event, context: Context, inter: Interactivity) -> Optional[EvalResult]:
+        resp = await self.if_.eval(event, context, inter)
         if resp.value:
-            resp = await self.then_.eval(event, context)
+            resp = await self.then_.eval(event, context, inter)
         elif self.else_ is not None:
-            resp = await self.else_.eval(event, context)
+            resp = await self.else_.eval(event, context, inter)
 
         return resp
 
@@ -320,7 +308,7 @@ class Print(AstNode):
         super().__init__()
         self.name = name
 
-    async def eval(self, message: Event, context: Context) -> Optional[EvalResult]:
+    async def eval(self, message: Event, context: Context, inter: Interactivity) -> Optional[EvalResult]:
         return EvalResult(value=OutMessageEvent(context.get(self.name, "")))
 
 
@@ -328,7 +316,7 @@ class Empty(AstNode):
     def __init__(self, var):
         self.var = var
 
-    async def eval(self, event: Event, context: Context) -> Optional[EvalResult]:
+    async def eval(self, event: Event, context: Context, inter: Interactivity) -> Optional[EvalResult]:
         return EvalResult(value=not bool(context.get(self.var)))
 
 
@@ -336,8 +324,18 @@ class NotEmpty(AstNode):
     def __init__(self, var):
         self.var = var
 
-    async def eval(self, event: Event, context: Context) -> Optional[EvalResult]:
+    async def eval(self, event: Event, context: Context, inter: Interactivity) -> Optional[EvalResult]:
         return EvalResult(value=bool(context.get(self.var)))
+
+
+class Sleep(AstNode):
+    def __init__(self, seconds):
+        super().__init__()
+        self.seconds = seconds
+
+    async def eval(self, event: Event, context: Context, inter: Interactivity) -> Optional[EvalResult]:
+        await asyncio.sleep(self.seconds)
+        return EvalResult()
 
 
 class RegexVariative(AstNode):
@@ -379,7 +377,7 @@ class RegexVariative(AstNode):
     def _compile_re(r):
         return re.compile(r, flags=re.MULTILINE | re.IGNORECASE)
 
-    async def eval(self, event: Event, context: Context) -> Optional[EvalResult]:
+    async def eval(self, event: Event, context: Context, inter: Interactivity) -> Optional[EvalResult]:
         if not isinstance(event, UserMessage):
             return None
 
@@ -393,31 +391,30 @@ class RegexVariative(AstNode):
 
 
 class Flow(AstNode):
-    def __init__(self, commands, is_conditions=False):
+    def __init__(self, commands):
         self.commands = commands
-        self.is_conditions = is_conditions
 
-    async def eval(self, event: Event, context: Context) -> Optional[EvalResult]:
+    async def eval(self, event: Event, context: Context, inter: Interactivity) -> Optional[EvalResult]:
         result = EvalResult()
 
         for command in self.commands:
-            res = await self._eval_command(command, event, context)
+            res = await self._eval_command(command, event, context, inter)
 
-            result.merge_match_result(res, is_conditions=self.is_conditions)
+            result.merge_match_result(res)
 
             if res and res.state in (CommandResult.EXIT, CommandResult.BREAK):
                 return result
 
         return result
 
-    async def _eval_command(self, command: AstNode, event: Event, context: Context) -> Optional[EvalResult]:
+    async def _eval_command(self, command: AstNode, event: Event, context: Context, inter: Interactivity) -> Optional[EvalResult]:
         if isinstance(command, BreakAstNode):
             return EvalResult(state=CommandResult.BREAK)
 
         if isinstance(command, ExitAstNode):
             return EvalResult(state=CommandResult.EXIT)
 
-        resp = await command.eval(event, context)
+        resp = await command.eval(event, context, inter)
 
         if command.is_condition:
             if not resp:
@@ -430,7 +427,7 @@ class Rule:
     def __init__(self, *, name=None, weight=1):
         self.name = name
         self.weight = weight
-        self.condition = Flow([], is_conditions=True)
+        self.condition = Flow([])
         self.flow = Flow([])
 
 
@@ -442,24 +439,14 @@ class Bot:
         self.rules.extend(rules)
 
 
-class ConsoleIO(BaseIO):
-    async def read_event(self) -> Event:
-        text = input("<--")
-        msg = UserMessage(text)
-        return msg
-
-    async def send_event(self, event: Event):
-        if not isinstance(event, OutMessageEvent):
-            raise RuntimeError("Event %s is not OutMessageEvent" % event)
-        print("-->", event.parts)
-
-
 class Executor:
-    async def execute_event(self, event: Event, bot: Bot, context: Context):
+    async def execute_event(self, event: Event, bot: Bot, context: Context, inter: Interactivity):
         matched_results = []
 
+        dummy_inter = Interactivity()
+
         for rule_idx, rule in enumerate(bot.rules):
-            resp = await rule.condition.eval(event, context)
+            resp = await rule.condition.eval(event, context, dummy_inter)
             if resp is None or resp.value is None:
                 continue
 
@@ -483,21 +470,9 @@ class Executor:
         rule_idx, match = best_response
         rule = bot.rules[rule_idx]
 
-        response = await rule.flow.eval(event, context)
+        response = await rule.flow.eval(event, context, inter)
 
         if response.value:
             return response.value.value
         else:
             return None
-
-    async def loop(self, *, bot: Bot, context: Context, io: BaseIO):
-        while True:
-            event = await io.read_event()
-
-            response_events = await self.execute_event(event, bot, context)
-
-            if response_events:
-                for response_event in response_events:
-                    await io.send_event(response_event)
-            else:
-                pass  # Log it too

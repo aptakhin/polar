@@ -6,12 +6,26 @@ import aioredis
 import asyncpg
 from aiohttp import web
 
-from polar import UserMessage
+from polar import UserMessage, Interactivity, Event, OutMessageEvent
 from polar.meta.meta_service import MetaService
 from polar.proxy import proxy_conf, legacy
 
 
 logger = logging.getLogger(__name__)
+
+
+class WsInteractivity(Interactivity):
+    def __init__(self, ws):
+        self.ws = ws
+
+    async def send_event(self, event: Event):
+        if not isinstance(event, OutMessageEvent):
+            raise RuntimeError("Only OutMessageEvent cant be used in interactive")
+
+        resp_text = "".join(event.parts)
+        send = {"type": "text", "text": resp_text}
+        logger.info("Response %s", send)
+        await self.ws.send_json(send)
 
 
 async def websocket_handler(request):
@@ -24,6 +38,8 @@ async def websocket_handler(request):
 
     logger.debug("New websocket request")
 
+    inter = WsInteractivity(ws)
+
     while not ws.closed:
         msg = await ws.receive()
 
@@ -35,13 +51,7 @@ async def websocket_handler(request):
                 session_id = await meta.init_session(js["bot_id"])
             elif js["type"] == "text":
                 event = UserMessage(js["text"])
-                resp_events = await meta.push_request(event, session_id)
-                if resp_events:
-                    for resp_event in resp_events:
-                        resp_text = "".join(resp_event.parts)
-                        send = {"type": "text", "text": resp_text}
-                        logger.info("Response %s", send)
-                        await ws.send_json(send)
+                await meta.push_request(event, session_id, inter)
 
         elif msg.type == aiohttp.WSMsgType.CLOSE:
             logger.info("websocket connection closed")
