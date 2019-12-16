@@ -2,7 +2,7 @@ import logging
 
 from aiohttp.web_response import json_response
 
-from polar import UserMessage, Interactivity, Event, OutMessageEvent
+from polar.lang import UserMessage, Interactivity, Event, OutMessageEvent
 from polar.meta.meta_service import MetaService
 
 

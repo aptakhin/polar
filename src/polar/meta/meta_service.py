@@ -1,7 +1,8 @@
 import copy
 import logging
 
-from polar import Executor, Event, Interactivity
+from polar.lang import Event, Interactivity
+from polar.lang.eval import Executor
 from polar.logic.backend import LogicPostgresBackend
 from polar.logic.logic_service import LogicService
 from polar.meta.bot_storage import MetaBotStorage, MetaMemoryBotStorageBackend

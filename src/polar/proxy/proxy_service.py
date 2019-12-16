@@ -6,7 +6,7 @@ import aioredis
 import asyncpg
 from aiohttp import web
 
-from polar import UserMessage, Interactivity, Event, OutMessageEvent
+from polar.lang import UserMessage, Interactivity, Event, OutMessageEvent
 from polar.meta.meta_service import MetaService
 from polar.proxy import proxy_conf, legacy
 

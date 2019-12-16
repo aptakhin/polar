@@ -1,7 +1,10 @@
 import pytest
 
-from polar import Bot, Rule, RegexVariative, Flow, SimpleResponse, OutMessageEvent, \
+from polar.lang import OutMessageEvent, \
     UserMessage
+from polar.lang.all import SimpleResponse, Flow
+from polar.lang.eval import Bot, Rule
+from polar.lang.regex_rule import RegexRule
 from tests.logic import execute_event
 
 
@@ -10,7 +13,7 @@ def test_trivial_logic():
 
     rule_mind = Rule(name="name")
     rule_mind.condition = Flow([
-        RegexVariative([
+        RegexRule([
             ["1", "2", "3"],
             "вышел",
             ["зайч~", "маль~"],
@@ -22,7 +25,7 @@ def test_trivial_logic():
 
     rule_mind2 = Rule(name="name")
     rule_mind2.condition = Flow([
-        RegexVariative([
+        RegexRule([
             "крокодил",
         ])
     ])
@@ -50,8 +53,8 @@ def test_star_logic():
 
     bot.add_rule(Rule(
         condition=Flow([
-            RegexVariative([
-                RegexVariative.Any,
+            RegexRule([
+                RegexRule.Any,
             ])
         ]),
         flow=Flow([
@@ -61,7 +64,7 @@ def test_star_logic():
 
     bot.add_rule(Rule(
         condition=Flow([
-            RegexVariative([
+            RegexRule([
                 "cat",
             ])
         ]),
@@ -88,8 +91,8 @@ def test_star_logic2():
 
     bot.add_rule(Rule(
         condition=Flow([
-            RegexVariative([
-                RegexVariative.Any,
+            RegexRule([
+                RegexRule.Any,
             ])
         ]),
         flow=Flow([
@@ -99,7 +102,7 @@ def test_star_logic2():
 
     bot.add_rule(Rule(
         condition=Flow([
-            RegexVariative([
+            RegexRule([
                 "cat"
             ])
         ]),
@@ -110,8 +113,8 @@ def test_star_logic2():
 
     bot.add_rule(Rule(
         condition=Flow([
-            RegexVariative([
-                "cat", RegexVariative.Any
+            RegexRule([
+                "cat", RegexRule.Any
             ])
         ]),
         flow=Flow([

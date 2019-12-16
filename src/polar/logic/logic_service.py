@@ -1,5 +1,5 @@
 from polar.logic.backend import LogicBaseBackend
-from polar.logic.parser import ArmBotParser
+from polar.lang.parser import ArmBotParser
 
 
 class LogicService:

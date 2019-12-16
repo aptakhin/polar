@@ -1,4 +1,4 @@
-from polar import Interactivity, Event, OutMessageEvent
+from polar.lang import Interactivity, Event, OutMessageEvent
 
 
 class LogInteractivity(Interactivity):

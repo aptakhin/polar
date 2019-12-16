@@ -1,6 +1,7 @@
 import asyncio
 
-from polar import UserMessage, Context, Executor, Bot
+from polar.lang import UserMessage, Context
+from polar.lang.eval import Bot, Executor
 from tests.common import LogInteractivity
 
 

@@ -4,7 +4,10 @@ from typing import List
 
 from bs4 import BeautifulSoup
 
-from polar import Bot, Rule, RegexVariative, OutMessageEvent, SimpleResponse
+from polar.lang import OutMessageEvent
+from polar.lang.all import SimpleResponse
+from polar.lang.eval import Bot, Rule
+from polar.lang.regex_rule import RegexRule
 
 
 def _transform_template_text(text):
@@ -69,11 +72,11 @@ class ArmBotParser:
                     x = [x.strip() for x in anys]
 
                     # Insert back Any after every object. Skip last
-                    y = list(itertools.chain(*itertools.product(x, [RegexVariative.Any])))[:-1]
+                    y = list(itertools.chain(*itertools.product(x, [RegexRule.Any])))[:-1]
 
                     # Remove empties
                     z = [x for x in y if x]
-                    conditions.append(RegexVariative(z))
+                    conditions.append(RegexRule(z))
 
                 elif sline.startswith("#"):
                     cmd = sline[1:].lstrip()

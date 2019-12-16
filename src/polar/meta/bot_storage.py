@@ -1,7 +1,7 @@
 import uuid
 from abc import abstractmethod
 
-from polar import Bot
+from polar.lang.eval import Bot
 
 
 class MetaBotStorageBaseBackend:
