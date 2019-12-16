@@ -351,21 +351,46 @@ class RegexVariative(AstNode):
     class Any:
         pass
 
-    class Weighted:
-        def __init__(self, arg, weight: Union[int, float]=1):
+    class Node:
+        def __init__(self, arg, weight: Union[int, float]=None):
             RegexVariative._validate_arg(arg)
-            self.arg = arg
-            self.weight = weight
+            self._arg = arg
+            self._weight = weight
+
+        @property
+        def arg(self):
+            return self._arg
+
+        @property
+        def weight(self):
+            return self._weight
 
     def __init__(self, args):
         super().__init__()
-        self.args = args
-        self._re = self._compile_re(self._build_re(self.args))
+        self._args = self._init_args(args)
+        self._re = self._compile_re(self._build_re(self._args))
+
+    @property  # Temporary??
+    def args(self):
+        return self._args
+
+    @classmethod
+    def _init_args(cls, args):
+        ret = []
+        for arg in args:
+            if isinstance(arg, cls.Node):
+                add = arg
+            else:
+                add = cls.Node(arg)
+            ret.append(add)
+        return ret
 
     @classmethod
     def _validate_arg(cls, arg):
-        if isinstance(arg, cls.Weighted):
+        if isinstance(arg, cls.Node):
             cls._validate_arg(arg.arg)
+        elif arg == cls.Any:
+            pass
         elif isinstance(arg, list):
             all(cls._validate_arg(a) for a in arg)
         elif not isinstance(arg, str):
@@ -387,7 +412,7 @@ class RegexVariative(AstNode):
             r = "(.*)"
         elif isinstance(arg, str):
             r = f"({cls._format_word(arg)})"
-        elif isinstance(arg, cls.Weighted):
+        elif isinstance(arg, cls.Node):
             r = cls._build_arg(arg.arg)
         else:
             raise PolarInternalError("Unexpected argument: %s %s" % (arg, type(arg)))
@@ -396,7 +421,7 @@ class RegexVariative(AstNode):
 
     @classmethod
     def _is_any_arg(cls, arg):
-        return arg == cls.Any or isinstance(arg, cls.Weighted) and arg.arg == cls.Any
+        return arg == cls.Any or isinstance(arg, cls.Node) and arg.arg == cls.Any
 
     @classmethod
     def _build_re(cls, args):
@@ -419,21 +444,22 @@ class RegexVariative(AstNode):
 
     @classmethod
     def _weight_arg(cls, arg, m):
-        if isinstance(arg, cls.Weighted):
-            return arg.weight
-        elif arg == cls.Any:
-            if m[0] == m[1]:
-                # Small penalty for non-matching * made for case when exact match will be better
-                return -0.03
-            else:
-                # Small bonus for * matching
-                return 0.03
+        if isinstance(arg, cls.Node):
+            if arg.arg == cls.Any and arg.weight is None:
+                if m[0] == m[1]:
+                    # Small penalty for non-matching * made for case when exact match will be better
+                    return -0.03
+                else:
+                    # Small bonus for * matching
+                    return 0.03
+            return arg.weight if arg.weight is not None else 1
         else:
             return 1.
 
     def _calc_weight(self, match):
-        match_regs = match.regs[1:]
-        return sum(self._weight_arg(a, b) for a, b in zip(self.args, match_regs))
+        match_ranges = match.regs[1:]
+        return sum(self._weight_arg(arg, match_range)
+                   for arg, match_range in zip(self._args, match_ranges))
 
     async def eval(self, event: Event, context: Context, inter: Interactivity) -> Optional[EvalResult]:
         if not isinstance(event, UserMessage):

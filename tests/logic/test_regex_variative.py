@@ -79,9 +79,9 @@ def test_star_merge():
 
 def test_weighted_rabbit():
     args = [
-        RegexVariative.Weighted(["1", "2", "3"]),
-        RegexVariative.Weighted("вышел", weight=2),
-        RegexVariative.Weighted(["зайч~", "маль~"]),
+        RegexVariative.Node(["1", "2", "3"]),
+        RegexVariative.Node("вышел", weight=2),
+        RegexVariative.Node(["зайч~", "маль~"]),
     ]
 
     rv = RegexVariative(args)

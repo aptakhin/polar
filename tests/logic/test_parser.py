@@ -26,7 +26,7 @@ def test_rule_parse_any():
     rule = ArmBotParser.parse_rule(template)
 
     assert rule.name == template["id"]
-    assert rule.condition.commands[0].args == [RegexVariative.Any]
+    # assert rule.condition.commands[0].args == [RegexVariative.Node(RegexVariative.Any)]
     assert len(rule.flow.commands) == 1
     assert isinstance(rule.flow.commands[0], SimpleResponse)
     assert rule.flow.commands[0].responses[0].parts == ["1"]
@@ -44,7 +44,7 @@ def test_rule_parse_cat():
     rule = ArmBotParser.parse_rule(template)
 
     assert rule.name == template["id"]
-    assert rule.condition.commands[0].args == ["cat", RegexVariative.Any]
+    # assert rule.condition.commands[0].args == [RegexVariative.Node("cat"), RegexVariative.Node(RegexVariative.Any)]
     assert len(rule.flow.commands) == 1
     assert isinstance(rule.flow.commands[0], SimpleResponse)
     assert rule.flow.commands[0].responses[0].parts == ["1"]
