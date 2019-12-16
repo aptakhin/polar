@@ -7,7 +7,6 @@ Data format is JSON
 
 Message types:
 
-
 - `text`
 Simple text message 
 
@@ -41,12 +40,14 @@ Greeting message with user credentials and requesting bot identifiers and versio
 - `system`
 Some management commands e.g. switch bot to other version or set some flags for test
 
+---
+
 Some types available for bot:
-- `progress` Shows progress operations
+- `progress` 
+Shows progress operations
 
-
-
-Message from bots
+- `voicetext` 
+Shows recognized text progress from user
 
 
 ## Format
@@ -71,9 +72,12 @@ Fields `type` and `request_id` are required.
 
 #### request
 
+`token` – jwt-token
+`request_id` – unique from client request_id
+
     {
         "type": "hello",
-        "user_id": "...",
+        "token": "...",
         "bot_id": "...",
         "request_id": "...",
         "session_id": ..."",
