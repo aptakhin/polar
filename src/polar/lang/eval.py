@@ -30,7 +30,7 @@ class ExecutorState:
 
 class Executor:
     @classmethod
-    async def execute_event(cls, event: Event, bot: Bot, context: Context, inter: Interactivity):
+    async def execute_event(cls, event: Event, bot: Bot, context: Context, inter: Interactivity) -> ExecutorState:
         matched_results = await cls._test_rules(event, bot, context)
 
         if not matched_results:

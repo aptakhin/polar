@@ -36,16 +36,18 @@ def test_trivial_logic():
     bot.add_rules([rule_mind, rule_mind2])
 
     event = UserMessage("2 вышел зайчик")
-    resp_events = execute_event(event=event, bot=bot)
+    resp_events, state = execute_event(event=event, bot=bot)
     assert len(resp_events) == 1
     assert len(resp_events[0].parts) == 1
     assert resp_events[0].parts[0] == "И, правда, вышел"
+    assert state.sorted_results[0][1].ranges[0].weight == 3
 
     event = UserMessage("крокодил")
-    resp_events = execute_event(event=event, bot=bot)
+    resp_events, state = execute_event(event=event, bot=bot)
     assert len(resp_events) == 1
     assert len(resp_events[0].parts) == 1
     assert resp_events[0].parts[0] == "слон"
+    assert state.sorted_results[0][1].ranges[0].weight == 1
 
 
 def test_star_logic():
@@ -74,16 +76,18 @@ def test_star_logic():
     ))
 
     event = UserMessage("dog")
-    resp_events = execute_event(event=event, bot=bot)
+    resp_events, state = execute_event(event=event, bot=bot)
     assert len(resp_events) == 1
     assert len(resp_events[0].parts) == 1
     assert resp_events[0].parts[0] == "any"
+    assert state.sorted_results[0][1].ranges[0].weight == RegexRule.ANY_WEIGHT
 
     event = UserMessage("cat")
-    resp_events = execute_event(event=event, bot=bot)
+    resp_events, state = execute_event(event=event, bot=bot)
     assert len(resp_events) == 1
     assert len(resp_events[0].parts) == 1
     assert resp_events[0].parts[0] == "dog"
+    assert state.sorted_results[0][1].ranges[0].weight == 1
 
 
 def test_star_logic2():
@@ -123,10 +127,14 @@ def test_star_logic2():
     ))
 
     event = UserMessage("cat")
-    resp_events = execute_event(event=event, bot=bot)
+    resp_events, state = execute_event(event=event, bot=bot)
     assert len(resp_events) == 1
     assert len(resp_events[0].parts) == 1
     assert resp_events[0].parts[0] == "dog1"
+
+    assert state.sorted_results[0][1].ranges[0].weight == 1 and state.sorted_results[0][0] == 1
+    assert state.sorted_results[1][1].ranges[0].weight == 1 - RegexRule.ANY_WEIGHT and state.sorted_results[1][0] == 2
+    assert state.sorted_results[2][1].ranges[0].weight == RegexRule.ANY_WEIGHT and state.sorted_results[2][0] == 0
 
 
 def test_cat_dog():
@@ -166,10 +174,14 @@ def test_cat_dog():
     ))
 
     event = UserMessage("cat dog")
-    resp_events = execute_event(event=event, bot=bot)
+    resp_events, state = execute_event(event=event, bot=bot)
     assert len(resp_events) == 1
     assert len(resp_events[0].parts) == 1
     assert resp_events[0].parts[0] == "cat dog"
+
+    assert state.sorted_results[0][1].ranges[0].weight == 2
+    assert state.sorted_results[1][1].ranges[0].weight == 1 + RegexRule.ANY_WEIGHT
+    assert state.sorted_results[2][1].ranges[0].weight == RegexRule.ANY_WEIGHT
 
 
 if __name__ == "__main__":
