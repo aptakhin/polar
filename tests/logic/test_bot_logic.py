@@ -129,5 +129,48 @@ def test_star_logic2():
     assert resp_events[0].parts[0] == "dog1"
 
 
+def test_cat_dog():
+    bot = Bot()
+
+    bot.add_rule(Rule(
+        condition=Flow([
+            RegexRule([
+                RegexRule.Any,
+            ])
+        ]),
+        flow=Flow([
+            SimpleResponse([OutMessageEvent("*")]),
+        ])
+    ))
+
+    bot.add_rule(Rule(
+        condition=Flow([
+            RegexRule([
+                "cat", "dog"
+            ])
+        ]),
+        flow=Flow([
+            SimpleResponse([OutMessageEvent("cat dog")]),
+        ])
+    ))
+
+    bot.add_rule(Rule(
+        condition=Flow([
+            RegexRule([
+                "cat", RegexRule.Any
+            ])
+        ]),
+        flow=Flow([
+            SimpleResponse([OutMessageEvent("cat *")]),
+        ])
+    ))
+
+    event = UserMessage("cat dog")
+    resp_events = execute_event(event=event, bot=bot)
+    assert len(resp_events) == 1
+    assert len(resp_events[0].parts) == 1
+    assert resp_events[0].parts[0] == "cat dog"
+
+
 if __name__ == "__main__":
     pytest.main(["-s", "-x", __file__])
