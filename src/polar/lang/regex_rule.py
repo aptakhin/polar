@@ -30,10 +30,22 @@ class RegexRule(AstNode):
         def weight(self):
             return self._weight
 
+        def __eq__(self, other: "Node"):
+            if type(self) != type(other):
+                return False
+            return self._arg == other._arg and self._weight == other._weight
+
+        def __repr__(self):
+            return "Node(%s, %s)" % (repr(self._arg), repr(self._weight))
+
     def __init__(self, args):
         super().__init__()
         self._args = self._init_args(args)
         self._re = self._compile_re(self._build_re(self._args))
+
+    @property
+    def args(self):
+        return self._args
 
     async def eval(self, event: Event, context: Context, inter: Interactivity) -> Optional[EvalResult]:
         if not isinstance(event, UserMessage):
@@ -62,9 +74,7 @@ class RegexRule(AstNode):
 
     @classmethod
     def _validate_arg(cls, arg):
-        if isinstance(arg, cls.Node):
-            cls._validate_arg(arg.arg)
-        elif arg == cls.Any:
+        if arg == cls.Any:
             pass
         elif isinstance(arg, list):
             all(cls._validate_arg(a) for a in arg)
@@ -83,7 +93,7 @@ class RegexRule(AstNode):
         if isinstance(arg, list):
             vars = "|".join(cls._format_word(w) for w in arg)
             r = f"({vars})"
-        elif arg == RegexRule.Any or isinstance(arg, RegexRule.Any):
+        elif arg == RegexRule.Any:
             r = "(.*)"
         elif isinstance(arg, str):
             r = f"({cls._format_word(arg)})"

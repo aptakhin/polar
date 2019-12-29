@@ -4,7 +4,7 @@ import pytest
 
 from polar.lang.all import SimpleResponse
 from polar.lang.parser import ArmBotParser
-
+from polar.lang.regex_rule import RegexRule
 
 FAKE_TEMPLATE_ID = "c3487788-ff34-4188-a781-21527911e4c5"
 
@@ -26,8 +26,7 @@ def test_rule_parse_any():
     rule = ArmBotParser.parse_rule(template)
 
     assert rule.name == template["id"]
-    # FIXME: access
-    # assert rule.condition.commands[0].args == [RegexVariative.Node(RegexVariative.Any)]
+    assert rule.condition.commands[0].args == [RegexRule.Node(RegexRule.Any)]
     assert len(rule.flow.commands) == 1
     assert isinstance(rule.flow.commands[0], SimpleResponse)
     assert rule.flow.commands[0].responses[0].parts == ["1"]
@@ -45,8 +44,26 @@ def test_rule_parse_cat():
     rule = ArmBotParser.parse_rule(template)
 
     assert rule.name == template["id"]
+    assert rule.condition.commands[0].args == [RegexRule.Node("cat"), RegexRule.Node(RegexRule.Any)]
+    assert len(rule.flow.commands) == 1
+    assert isinstance(rule.flow.commands[0], SimpleResponse)
+    assert rule.flow.commands[0].responses[0].parts == ["1"]
+
+
+def test_rule_parse_cat_dog():
+    template = {
+        "content": _content("""
+            $ cat dog *
+            # 1
+        """),
+        "id": FAKE_TEMPLATE_ID,
+    }
+
+    rule = ArmBotParser.parse_rule(template)
+
+    assert rule.name == template["id"]
     # FIXME: access
-    # assert rule.condition.commands[0].args == [RegexVariative.Node("cat"), RegexVariative.Node(RegexVariative.Any)]
+    assert rule.condition.commands[0].args == [RegexRule.Node("cat"), RegexRule.Node("dog"), RegexRule.Node(RegexRule.Any)]
     assert len(rule.flow.commands) == 1
     assert isinstance(rule.flow.commands[0], SimpleResponse)
     assert rule.flow.commands[0].responses[0].parts == ["1"]
