@@ -15,15 +15,16 @@ logger = logging.getLogger(__name__)
 
 
 class WsInteractivity(Interactivity):
-    def __init__(self, ws):
+    def __init__(self, ws, request_id):
         self.ws = ws
+        self.request_id = request_id
 
     async def send_event(self, event: Event):
         if not isinstance(event, OutMessageEvent):
             raise RuntimeError("Only OutMessageEvent cant be used in interactive")
 
         resp_text = "".join(event.parts)
-        send = {"type": "text", "text": resp_text}
+        send = {"type": "text", "text": resp_text, "request_id": self.request_id}
         logger.info("Response %s", send)
         await self.ws.send_json(send)
 
@@ -38,8 +39,6 @@ async def websocket_handler(request):
 
     logger.debug("New websocket request")
 
-    inter = WsInteractivity(ws)
-
     while not ws.closed:
         msg = await ws.receive()
 
@@ -47,11 +46,25 @@ async def websocket_handler(request):
             logger.info("Got %s", msg.data)
             js = msg.json()
 
+            if not js.get("request_id"):
+                await ws.send_json({"type": "error", "text": "Missing 'request_id' in message", "code": 11})
+                continue
+
+            if not js.get("type"):
+                await ws.send_json({"type": "error", "text": "Missing 'type' in message", "code": 10, "request_id": js["request_id"]})
+                continue
+
+
+
             if js["type"] == "hello":
                 session_id = await meta.init_session(js["bot_id"])
             elif js["type"] == "text":
                 event = UserMessage(js["text"])
+                inter = WsInteractivity(ws, request_id=js["request_id"])
                 await meta.push_request(event, session_id, inter)
+            else:
+                await ws.send_json({"type": "error", "text": f"Unknown type '{js['type']}'", "code": 12, "request_id": js["request_id"]})
+                continue
 
         elif msg.type == aiohttp.WSMsgType.CLOSE:
             logger.info("websocket connection closed")

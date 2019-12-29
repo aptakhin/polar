@@ -8,7 +8,7 @@ Data format is JSON
 Message types:
 
 - `text`
-Simple text message 
+Simple text message
 
 - `prefetch`
 Query with text from user device trying to guess user query
@@ -23,10 +23,10 @@ Send voice stream
 Send image or images
 
 - `video`
-Send video stream 
+Send video stream
 
 - `file`
-Send files 
+Send files
 
 - `rate`
 Rate answers
@@ -42,11 +42,11 @@ Some management commands e.g. switch bot to other version or set some flags for 
 
 ---
 
-Some types available for bot:
-- `progress` 
+Some types available from server:
+- `progress`
 Shows progress operations
 
-- `voicetext` 
+- `voicetext`
 Shows recognized text progress from user
 
 
@@ -54,7 +54,7 @@ Shows recognized text progress from user
 
 Fields `type` and `request_id` are required.
 `type` for message type
-`request_id` is unique id for every client request
+`request_id` unique client-generated identifier for every client request
 
     {
         "type": "hello",
@@ -73,26 +73,27 @@ Fields `type` and `request_id` are required.
 #### request
 
 `token` – jwt-token
-`request_id` – unique from client request_id
+`request_id` – unique client-generated identifier for every client request
+`bot_id`
 
     {
         "type": "hello",
         "token": "...",
         "bot_id": "...",
-        "request_id": "...",
-        "session_id": ..."",
-        "context": {}
+        "session_id": "...",
+        "session_context": {},
+        "request_id": "..."
     }
-    
-    
+
+
 #### response
-    
+
     {
         "type": "hello",
         "status": "ok",
-        "context": {}
+        "session_context": {}
     }
-    
+
 
 
 #### suggest message
@@ -101,9 +102,9 @@ Fields `type` and `request_id` are required.
 
     {
         "type": "suggest",
-        "query": "marry crist"
+        "query": "marry crist",
+        "request_id": "..."
     }
-    
-    
+
+
 #### response
-    
