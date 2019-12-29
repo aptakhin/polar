@@ -1,5 +1,6 @@
 from abc import abstractmethod
 from typing import Union, List, Optional
+from frozendict import frozendict
 
 
 class PolarInvalidArguments(ValueError):
@@ -8,10 +9,6 @@ class PolarInvalidArguments(ValueError):
 
 class PolarInternalError(RuntimeError):
     pass
-
-
-
-from frozendict import frozendict
 
 
 class Context(frozendict):
