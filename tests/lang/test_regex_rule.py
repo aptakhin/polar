@@ -7,13 +7,13 @@ from polar.lang.regex_rule import RegexRule
 
 
 def test_word():
-    format = RegexRule._format_word
-    assert format("abyr") == r"abyr"
-    assert format("зайч~") == r"зайч\w."
+    format_word = lambda test: RegexRule.Node._format_word(test)
+    assert format_word("abyr") == r"abyr"
+    assert format_word("зайч~") == r"зайч\w."
 
 
 def test_build():
-    build = RegexRule._build_re
+    build = lambda test: RegexRule(test).build_re()
     assert build(["abyr"]) == r"(abyr)"
     assert build(["зайч~"]) == r"(зайч\w.)"
 

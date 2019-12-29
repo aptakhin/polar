@@ -8,7 +8,7 @@ from polar.lang import PolarInternalError, ListN, AstNode, PolarInvalidArguments
 class RegexRule(AstNode):
     """
     Most useful rule for matching text with set of regexes.
-    Evalues with weights.
+    Evaluetes with weights.
     """
 
     ANY_WEIGHT = 0.01
@@ -18,7 +18,7 @@ class RegexRule(AstNode):
 
     class Node:
         def __init__(self, arg, weight: Union[int, float]=None):
-            RegexRule._validate_arg(arg)
+            self._validate_arg(arg)
             self._arg = arg
             self._weight = weight
 
@@ -33,10 +33,39 @@ class RegexRule(AstNode):
         def __eq__(self, other: "Node"):
             if type(self) != type(other):
                 return False
-            return self._arg == other._arg and self._weight == other._weight
+            return self.arg == other.arg and self.weight == other.weight
 
         def __repr__(self):
-            return "Node(%s, %s)" % (repr(self._arg), repr(self._weight))
+            return "Node(%s, %s)" % (repr(self.arg), repr(self.weight))
+
+        def build_re(self):
+            if isinstance(self.arg, list):
+                vars = "|".join(self._format_word(w) for w in self.arg)
+                r = f"({vars})"
+            elif self.arg == RegexRule.Any:
+                r = "(.*)"
+            elif isinstance(self.arg, str):
+                r = f"({self._format_word(self.arg)})"
+            else:
+                raise PolarInternalError("Unhandled build_re argument: %s %s" % (self.arg, type(self.arg)))
+
+            return r
+
+        @staticmethod
+        def _format_word(word):
+            if word.endswith("~"):
+                word = word[:-1] + r"\w."
+            return word
+
+        @classmethod
+        def _validate_arg(cls, arg):
+            if arg == RegexRule.Any:
+                pass
+            elif isinstance(arg, list):
+                all(cls._validate_arg(a) for a in arg)
+            elif not isinstance(arg, str):
+                raise PolarInvalidArguments("Arg in RegexVariative can be str, list of str or "
+                                            "Got: %s %s" % (arg, type(arg)))
 
     def __init__(self, args):
         super().__init__()
@@ -61,48 +90,15 @@ class RegexRule(AstNode):
 
         return EvalResult(state=CommandResult.OK, value=value)
 
+    def build_re(self):
+        return self._build_re(self.args)
+
     @classmethod
     def _init_args(cls, args):
-        ret = []
-        for arg in args:
-            if isinstance(arg, cls.Node):
-                add = arg
-            else:
-                add = cls.Node(arg)
-            ret.append(add)
-        return ret
-
-    @classmethod
-    def _validate_arg(cls, arg):
-        if arg == cls.Any:
-            pass
-        elif isinstance(arg, list):
-            all(cls._validate_arg(a) for a in arg)
-        elif not isinstance(arg, str):
-            raise PolarInvalidArguments("Arg in RegexVariative can be str, list of str or "
-                                        "Weighted from these. Got: %s %s" % (arg, type(arg)))
-
-    @staticmethod
-    def _format_word(word):
-        if word.endswith("~"):
-            word = word[:-1] + r"\w."
-        return word
-
-    @classmethod
-    def _build_arg(cls, arg):
-        if isinstance(arg, list):
-            vars = "|".join(cls._format_word(w) for w in arg)
-            r = f"({vars})"
-        elif arg == RegexRule.Any:
-            r = "(.*)"
-        elif isinstance(arg, str):
-            r = f"({cls._format_word(arg)})"
-        elif isinstance(arg, cls.Node):
-            r = cls._build_arg(arg.arg)
-        else:
-            raise PolarInternalError("Unexpected argument: %s %s" % (arg, type(arg)))
-
-        return r
+        return [
+            arg if isinstance(arg, cls.Node) else cls.Node(arg)
+            for arg in args
+        ]
 
     @classmethod
     def _is_any_arg(cls, arg):
@@ -110,7 +106,7 @@ class RegexRule(AstNode):
 
     @classmethod
     def _build_re(cls, args):
-        built_args = [cls._build_arg(arg) for arg in args]
+        built_args = [arg.build_re() for arg in args]
 
         idx = 0
         r = r""
