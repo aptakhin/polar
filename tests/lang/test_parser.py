@@ -62,7 +62,6 @@ def test_rule_parse_cat_dog():
     rule = ArmBotParser.parse_rule(template)
 
     assert rule.name == template["id"]
-    # FIXME: access
     assert rule.condition.commands[0].args == [RegexRule.Node("cat"), RegexRule.Node("dog"), RegexRule.Node(RegexRule.Any)]
     assert len(rule.flow.commands) == 1
     assert isinstance(rule.flow.commands[0], SimpleResponse)

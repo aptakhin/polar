@@ -66,17 +66,18 @@ class ArmBotParser:
                 if sline.startswith("$"):
                     cmd = sline[1:].lstrip()
 
-                    # Replace * for Any object and split to list magic shit
-                    anys = cmd.split("*")
+                    items = cmd.split()
 
-                    x = [x.strip() for x in anys]
+                    build_items = []
 
-                    # Insert back Any after every object. Skip last
-                    y = list(itertools.chain(*itertools.product(x, [RegexRule.Any])))[:-1]
+                    for item in items:
+                        if item == "*":
+                            add = RegexRule.Any
+                        else:
+                            add = item
+                        build_items.append(add)
 
-                    # Remove empties
-                    z = [x for x in y if x]
-                    conditions.append(RegexRule(z))
+                    conditions.append(RegexRule(build_items))
 
                 elif sline.startswith("#"):
                     cmd = sline[1:].lstrip()
