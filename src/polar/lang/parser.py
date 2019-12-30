@@ -84,7 +84,7 @@ class ArmBotParser:
                     simple_responses.append(OutMessageEvent(cmd))
                     state = ST_OUT
 
-            if state == ST_OUT:
+            elif state == ST_OUT:
                 if sline.startswith("#"):
                     cmd = sline[1:].lstrip()
                     simple_responses.append(OutMessageEvent(cmd))

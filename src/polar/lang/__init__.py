@@ -37,6 +37,9 @@ class OutMessageEvent(Event):
     def __repr__(self):
         return "OutMessageEvent(%s)" % repr(self.parts)
 
+    def __eq__(self, other):
+        return self.parts == other.parts
+
 
 class Interactivity:
     @abstractmethod
