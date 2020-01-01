@@ -1,7 +1,6 @@
 import pytest
 
-from polar.lang import OutMessageEvent, \
-    UserMessage
+from polar.lang import OutMessageEvent, UserMessage
 from polar.lang.all import SimpleResponse, Flow
 from polar.lang.eval import Bot, Rule
 from polar.lang.regex_rule import RegexRule
@@ -118,7 +117,7 @@ def test_star_logic2():
     bot.add_rule(Rule(
         condition=Flow([
             RegexRule([
-                "cat", RegexRule.Any
+                RegexRule.Any, "cat", RegexRule.Any
             ])
         ]),
         flow=Flow([
@@ -133,7 +132,17 @@ def test_star_logic2():
     assert resp_events[0].parts[0] == "dog1"
 
     assert state.sorted_results[0][1].ranges[0].weight == 1 and state.sorted_results[0][0] == 1
-    assert state.sorted_results[1][1].ranges[0].weight == 1 - RegexRule.ANY_WEIGHT and state.sorted_results[1][0] == 2
+    assert state.sorted_results[1][1].ranges[0].weight == 1 - 2 * RegexRule.ANY_WEIGHT and state.sorted_results[1][0] == 2
+    assert state.sorted_results[2][1].ranges[0].weight == RegexRule.ANY_WEIGHT and state.sorted_results[2][0] == 0
+
+    event = UserMessage("cat other")
+    resp_events, state = execute_event(event=event, bot=bot)
+    assert len(resp_events) == 1
+    assert len(resp_events[0].parts) == 1
+    assert resp_events[0].parts[0] == "dog2"
+
+    assert state.sorted_results[0][1].ranges[0].weight == 1 and state.sorted_results[0][0] == 2
+    assert state.sorted_results[1][1].ranges[0].weight == 1 and state.sorted_results[1][0] == 1
     assert state.sorted_results[2][1].ranges[0].weight == RegexRule.ANY_WEIGHT and state.sorted_results[2][0] == 0
 
 

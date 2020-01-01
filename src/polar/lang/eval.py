@@ -37,7 +37,7 @@ class Executor:
             return None
 
         def get_match_weight(match_result: MatchResult):
-            return sum(m.weight for m in match_result.ranges)
+            return sum(m.weight * abs(m.end - m.start) for m in match_result.ranges)
 
         sorted_results = sorted(matched_results, key=lambda res: -get_match_weight(res[1]))
 
