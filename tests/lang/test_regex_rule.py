@@ -18,6 +18,7 @@ def test_build():
     assert build(["зайч~"]) == r"(зайч\w.)"
 
     assert build([["1", "2", "3"]]) == r"(1|2|3)"
+    assert build([["a~", "b", "c"]]) == r"(a\w.|b|c)"
     assert build([["1", "2", "3"], ["4", "5", "6"]]) == r"(1|2|3)\s+?(4|5|6)"
     assert build([["1", "2", "3"], RegexRule.Any, "abyr"]) == r"(1|2|3)(.*)(abyr)"
 
