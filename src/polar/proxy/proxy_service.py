@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 
 import aiohttp
 import aioredis
@@ -54,14 +55,15 @@ async def websocket_handler(request):
                 await ws.send_json({"type": "error", "text": "Missing 'type' in message", "code": 10, "request_id": js["request_id"]})
                 continue
 
-
-
             if js["type"] == "hello":
                 session_id = await meta.init_session(js["bot_id"])
             elif js["type"] == "text":
                 event = UserMessage(js["text"])
+                s1 = time.perf_counter()
                 inter = WsInteractivity(ws, request_id=js["request_id"])
                 await meta.push_request(event, session_id, inter)
+                s2 = time.perf_counter()
+                print("Last request %.3fsec" % (s2 - s1))
             else:
                 await ws.send_json({"type": "error", "text": f"Unknown type '{js['type']}'", "code": 12, "request_id": js["request_id"]})
                 continue

@@ -1,5 +1,6 @@
 import copy
 import logging
+import time
 
 from polar.lang import Event, Interactivity
 from polar.lang.eval import Executor
@@ -47,15 +48,21 @@ class MetaService:
             logger.info("Can't find session %s", session_id)
             return None
 
+        s1 = time.perf_counter()
         if session.context.get("update_every_request"):
             # Debug flag to update bot templates every request
             public_bot_id = session.context["update_every_request"]
             bot = await self._logic_service.get_bot(public_bot_id, 0)
         else:
             bot = await self._bots.get(session.meta_bot_id)
+        s2 = time.perf_counter()
+        print("Parsing %.3fsec" % (s2 - s1))
 
         context = copy.deepcopy(session.context)
         context["random_seed"] = 123
 
+        s1 = time.perf_counter()
         resp_event = await self._executor.execute_event(event=event, bot=bot, context=context, inter=inter)
+        s2 = time.perf_counter()
+        print("Exec %.3fsec" % (s2 - s1))
         return resp_event
