@@ -1,7 +1,8 @@
 import re
 from typing import Optional, Union
 
-from polar.lang import PolarInternalError, ListN, AstNode, PolarInvalidArguments, EvalResult, MatchResult, Event, \
+from polar.lang import PolarInternalError, ListN, AstNode, \
+    PolarInvalidArguments, EvalResult, MatchResult, Event, \
     Context, Interactivity, UserMessage, MatchRange, CommandResult
 
 
@@ -47,7 +48,8 @@ class RegexRule(AstNode):
             elif isinstance(self.arg, str):
                 r = f"({self._format_word(self.arg)})"
             else:
-                raise PolarInternalError("Unhandled build_re argument: %s %s" % (self.arg, type(self.arg)))
+                raise PolarInternalError("Unhandled build_re argument: %s %s" %
+                                         (self.arg, type(self.arg)))
 
             return r
 
@@ -64,7 +66,8 @@ class RegexRule(AstNode):
             elif isinstance(arg, list):
                 all(cls._validate_arg(a) for a in arg)
             elif not isinstance(arg, str):
-                raise PolarInvalidArguments("Arg in RegexVariative can be str, list of str or "
+                raise PolarInvalidArguments("Arg in RegexVariative can be str, "
+                                            "list of str or "
                                             "Got: %s %s" % (arg, type(arg)))
 
     def __init__(self, args):
@@ -76,7 +79,8 @@ class RegexRule(AstNode):
     def args(self):
         return self._args
 
-    async def eval(self, event: Event, context: Context, inter: Interactivity) -> Optional[EvalResult]:
+    async def eval(self, event: Event, context: Context, inter: Interactivity) \
+            -> Optional[EvalResult]:
         if not isinstance(event, UserMessage):
             return None
 
@@ -96,13 +100,14 @@ class RegexRule(AstNode):
     @classmethod
     def _init_args(cls, args):
         return [
-            arg if isinstance(arg, cls.Node) else cls.Node(arg)
+                   (arg if isinstance(arg, cls.Node) else cls.Node(arg))
             for arg in args
         ]
 
     @classmethod
     def _is_any_arg(cls, arg):
-        return arg == cls.Any or isinstance(arg, cls.Node) and arg.arg == cls.Any
+        return arg == cls.Any or isinstance(arg, cls.Node) \
+               and arg.arg == cls.Any
 
     @classmethod
     def _build_re(cls, args):
@@ -111,7 +116,8 @@ class RegexRule(AstNode):
         idx = 0
         r = r""
         while idx < len(built_args):
-            if idx > 0 and not cls._is_any_arg(args[idx]) and not cls._is_any_arg(args[idx - 1]):
+            if idx > 0 and not cls._is_any_arg(args[idx]) and \
+                           not cls._is_any_arg(args[idx - 1]):
                 r += r"\s+?"
             r += built_args[idx]
 
@@ -128,7 +134,8 @@ class RegexRule(AstNode):
         if isinstance(arg, cls.Node):
             if arg.arg == cls.Any and arg.weight is None:
                 if m[0] == m[1]:
-                    # Small penalty for non-matching * made for case when exact match will be better
+                    # Small penalty for non-matching * made for case
+                    # when exact match will be better
                     return -cls.ANY_WEIGHT
                 else:
                     # Small bonus for * matching

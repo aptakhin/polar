@@ -83,6 +83,35 @@ class AstNode:
         return "ast:" + str(type(self)) + str(self.__dict__)
 
 
+class TermNode(AstNode):
+    def __init__(self, value):
+        self.value = value
+
+    @abstractmethod
+    async def eval(self, event: Event, context: Context,
+                   inter: Interactivity) -> Optional["EvalResult"]:
+        pass
+
+    def __repr__(self):
+        return "ast:" + str(type(self)) + str(self.__dict__)
+
+
+class RuleNode(AstNode):
+    def __init__(self, commands):
+        super().__init__(is_condition=True)
+        if len(commands) != 1:
+            raise RuntimeError("Not 1 command not supported in RuleNode")
+        self.commands: List[AstNode] = commands
+
+    @abstractmethod
+    async def eval(self, event: Event, context: Context,
+                   inter: Interactivity) -> Optional["EvalResult"]:
+        return await self.commands[0].eval(event, context, inter)
+
+    def __repr__(self):
+        return "ast:" + str(type(self)) + str(self.__dict__)
+
+
 class ListN(AstNode):
     def __init__(self, value):
         if not isinstance(value, list):

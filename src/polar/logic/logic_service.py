@@ -1,5 +1,5 @@
+from polar.lang.json_parser import JsonBotParser
 from polar.logic.backend import LogicBaseBackend
-from polar.lang.parser import ArmBotParser
 
 
 class LogicService:
@@ -9,7 +9,7 @@ class LogicService:
     async def get_bot(self, bot_id: str, version: int):
         templates = await self._backend.get_templates(bot_id)
 
-        parser = ArmBotParser()
+        parser = JsonBotParser()
         bot = parser.load_bot(templates)
 
         return bot

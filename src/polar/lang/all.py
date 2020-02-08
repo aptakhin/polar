@@ -3,8 +3,9 @@ import random
 import re
 from typing import List, Optional
 
-from polar.lang import AstNode, Event, Context, UserMessage, MatchResult, Interactivity, EvalResult, MatchRange, ListN, \
-    OutMessageEvent, CommandResult
+from polar.lang import AstNode, Event, Context, UserMessage, MatchResult, \
+    Interactivity, EvalResult, MatchRange, ListN, \
+    OutMessageEvent, CommandResult, TermNode
 
 
 class Condition(AstNode):
@@ -56,7 +57,7 @@ class SimpleResponse(AstNode):
             else:
                 return await part.eval(event, context)
 
-        random.seed(context["random_seed"])
+        # random.seed(context["random_seed"])
         part = random.choice(self.responses)
         if isinstance(part, OutMessageEvent):
             part = [await _eval(p) for p in part.parts]
@@ -64,8 +65,14 @@ class SimpleResponse(AstNode):
         if isinstance(part, str):
             part = [OutMessageEvent(part)]
 
+        if isinstance(part, TermNode):
+            part = [OutMessageEvent(part.value)]
+
         for p in part:
-            await inter.send_event(p)
+            value = p
+            if isinstance(p, TermNode):
+                value = p.value
+            await inter.send_event(value)
 
         return EvalResult(value=ListN(part))
 
@@ -198,6 +205,16 @@ class Print(AstNode):
 
     async def eval(self, message: Event, context: Context, inter: Interactivity) -> Optional[EvalResult]:
         return EvalResult(value=OutMessageEvent(context.get(self.name, "")))
+
+
+class CallNode(AstNode):
+    def __init__(self, args):
+        super().__init__()
+        self.args = args
+
+    async def eval(self, message: Event, context: Context, inter: Interactivity) -> Optional[EvalResult]:
+        print("CallFunc", self.args)
+        return EvalResult(value=[])
 
 
 class Empty(AstNode):

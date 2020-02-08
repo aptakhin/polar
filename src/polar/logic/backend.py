@@ -20,6 +20,9 @@ class LogicPostgresBackend(LogicBaseBackend):
             result = await connection.fetch("""
                 SELECT * FROM suites s
                 RIGHT JOIN templates t ON t.suite_id=s.id
-                WHERE s.profile_id=$1
+                WHERE 
+                    s.is_enabled AND
+                    t.is_enabled AND
+                    s.profile_id=$1
             """, bot_id)
             return result

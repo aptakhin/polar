@@ -46,7 +46,8 @@ class Executor:
         rule_idx, match = best_response
         rule = bot.rules[rule_idx]
 
-        # We don't really care about result because all user output messages sent to inter instance
+        # We don't really care about result because all user
+        # output messages sent to inter instance
         _ = await rule.flow.eval(event, context, inter)
 
         return ExecutorState(
